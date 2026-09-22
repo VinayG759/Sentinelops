@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 import psycopg
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.core.config import REPO_ROOT, get_settings  # noqa: E402
+from app.core.config import REPO_ROOT, get_settings
 
 MIGRATIONS = REPO_ROOT / "supabase" / "migrations"
 
@@ -36,7 +36,9 @@ def main() -> None:
                 continue
             with conn.transaction():
                 conn.execute(path.read_text(encoding="utf-8"))
-                conn.execute("insert into public.schema_migrations (name) values (%s)", (path.name,))
+                conn.execute(
+                    "insert into public.schema_migrations (name) values (%s)", (path.name,)
+                )
             print(f"  apply  {path.name}")
     print("Done.")
 

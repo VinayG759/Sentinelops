@@ -6,13 +6,12 @@ import {
   Siren,
   type LucideIcon,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/app/auth'
 import { HealthIndicator } from '@/features/system/HealthIndicator'
 import { cn } from '@/lib/utils'
-import { api } from '@/shared/api'
 import { supabase } from '@/shared/supabase'
+import { useMe } from '@/shared/useMe'
 
 const nav: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/incidents', label: 'Incidents', icon: Siren },
@@ -24,8 +23,7 @@ const nav: { to: string; label: string; icon: LucideIcon }[] = [
 
 export function Layout() {
   const { session } = useAuth()
-  // Round-trips through the backend's token verification + role lookup.
-  const me = useQuery({ queryKey: ['me'], queryFn: () => api<{ role: string }>('/api/me') })
+  const me = useMe() // round-trips through the backend's token verification + role lookup
 
   return (
     <div className="flex min-h-svh text-sm">

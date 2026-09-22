@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.core.config import get_settings  # noqa: E402
+from app.core.config import get_settings
 
 SERVICE_ACCOUNT = "sentinelops-agent"
 

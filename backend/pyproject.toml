@@ -23,8 +23,11 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 testpaths = ["tests"]
+addopts = "-m 'not db and not cluster and not eval'"
 markers = [
+    "db: needs the dev Supabase database (rolled back)",
     "cluster: needs the local Kubernetes cluster",
     "eval: calls the real LLM",
 ]
@@ -32,3 +35,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+ignore = ["B008"]  # FastAPI's Depends() in argument defaults is the framework's intended pattern
