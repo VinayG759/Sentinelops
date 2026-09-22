@@ -1,0 +1,46 @@
+# The identity SentinelOps uses on the cluster. Least privilege:
+# it can read what it needs to investigate, and patch deployments/services to
+# remediate. It cannot delete anything, and has no access outside `default`.
+# Which *specific* deployments it may touch is enforced again in the backend's
+# action allow-list — this Role is the outer fence, not the only one.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinelops-agent
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sentinelops-agent
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["patch"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]           # connectivity probe + read-only psql checks
+    verbs: ["create", "get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sentinelops-agent
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: sentinelops-agent
+    namespace: default
+roleRef:
+  kind: Role
+  name: sentinelops-agent
+  apiGroup: rbac.authorization.k8s.io

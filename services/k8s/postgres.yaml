@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          # No `-c max_connections=...` startup flag here on purpose: a
+          # command-line flag always overrides `ALTER SYSTEM SET
+          # max_connections`, which is exactly what break-incident.sh /
+          # reset-incident.sh rely on to change it at runtime. Postgres's own
+          # compiled-in default is already 100, matching the healthy
+          # baseline, so nothing needs to be set explicitly here.
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: sentinel
+            - name: POSTGRES_PASSWORD
+              value: sentinel
+            - name: POSTGRES_DB
+              value: sentinelops
+            # Subdirectory, not the volume's mount root directly - avoids
+            # Postgres refusing to init because of the volume's lost+found
+            # entry (a common gotcha with mounted PVCs).
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "sentinel", "-d", "sentinelops"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  # In-cluster only. The services connect to postgres:5432; SentinelOps reads
+  # the database through the Kubernetes API (pod exec), not a host port.
+  # The `port_mismatch` simulator scenario deliberately changes `port` to 5433.
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

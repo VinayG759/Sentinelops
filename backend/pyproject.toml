@@ -1,0 +1,34 @@
+[project]
+name = "sentinelops-backend"
+version = "0.1.0"
+description = "SentinelOps AI — safety-gated remediation agent"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic-settings>=2.4",
+    "httpx>=0.27",
+    "psycopg[binary,pool]>=3.2",
+    "pyjwt[crypto]>=2.9",
+    "kubernetes>=31.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "cluster: needs the local Kubernetes cluster",
+    "eval: calls the real LLM",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
