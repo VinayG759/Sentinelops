@@ -27,9 +27,37 @@ VERIFY_INTERVAL_SECONDS = 10
 SETTLE_SECONDS = 15  # let the change take effect before the first check
 
 
+SWEEP_SECONDS = 30
+
+
 @events.on("remediation.approved")
 async def _on_approved(event: events.Event) -> None:
     await run(UUID(event["payload"]["proposal_id"]))
+
+
+async def sweep() -> None:
+    """Safety net: execute approvals whose event nobody acted on.
+
+    The event bus is in-process, so an approval recorded while this process was
+    restarting (or by another process) would otherwise sit there forever. Claiming is
+    atomic, so a swept proposal can never be executed twice.
+    """
+    while True:
+        try:
+            async with get_pool().connection() as conn:
+                rows = await (
+                    await conn.execute(
+                        "select p.id from public.proposals p "
+                        "left join public.executions e on e.proposal_id = p.id "
+                        "where p.status = 'approved' and e.id is null"
+                    )
+                ).fetchall()
+            for row in rows:
+                log.warning("sweeping unexecuted approval", extra={"proposal_id": str(row["id"])})
+                await run(row["id"])
+        except Exception:
+            log.exception("executor sweep failed")
+        await asyncio.sleep(SWEEP_SECONDS)
 
 
 async def run(proposal_id: UUID) -> None:

@@ -15,7 +15,7 @@ from app.core.logging import setup_logging
 from app.features.incidents import detector
 from app.features.incidents.router import router as incidents_router
 from app.features.investigation.router import router as investigation_router
-from app.features.remediation import executor  # noqa: F401 — registers the approval subscriber
+from app.features.remediation import executor
 from app.features.remediation.router import router as remediation_router
 from app.features.simulator.router import router as simulator_router
 
@@ -27,6 +27,7 @@ async def lifespan(_: FastAPI):
     background = []
     if get_settings().supabase_db_url:
         background.append(asyncio.create_task(detector.run()))
+        background.append(asyncio.create_task(executor.sweep()))
     yield
     for task in background:
         task.cancel()
