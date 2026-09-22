@@ -45,7 +45,7 @@ uv run python scripts/make_agent_kubeconfig.py
 uv run python scripts/migrate.py
 
 # 3. Backend (http://localhost:8000/api/health)
-uv run uvicorn app.main:app --reload --port 8000
+uv run python run.py
 
 # 4. Frontend (http://localhost:5173)
 cd ../frontend && npm install && npm run dev
