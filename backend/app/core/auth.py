@@ -10,7 +10,7 @@ from enum import IntEnum
 from functools import lru_cache
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_settings
@@ -79,3 +79,11 @@ def require_role(minimum: Role):
         return user
 
     return check
+
+
+router = APIRouter()
+
+
+@router.get("/api/me")
+async def me(user: User = Depends(current_user)) -> dict:
+    return {"id": user.id, "email": user.email, "role": user.role.name}

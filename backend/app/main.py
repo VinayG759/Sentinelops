@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core import db, health
+from app.core import auth, db, health
 from app.core.logging import setup_logging
 
 
@@ -22,3 +22,4 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="SentinelOps AI", version="0.1.0", lifespan=lifespan)
 
 app.include_router(health.router)
+app.include_router(auth.router)
