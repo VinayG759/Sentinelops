@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { Layout } from '@/app/Layout'
 import { RequireAuth } from '@/app/auth'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { IncidentDetailPage } from '@/features/incidents/IncidentDetailPage'
 import { IncidentsPage } from '@/features/incidents/IncidentsPage'
 import { SimulatorPage } from '@/features/simulator/SimulatorPage'
 import { PagePlaceholder } from '@/shared/PagePlaceholder'
@@ -18,10 +19,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/incidents" replace /> },
       { path: '/incidents', element: <IncidentsPage /> },
-      {
-        path: '/incidents/:id',
-        element: <PagePlaceholder title="Incident detail" arrives="Phase 2" />,
-      },
+      { path: '/incidents/:id', element: <IncidentDetailPage /> },
       { path: '/approvals', element: <PagePlaceholder title="Approvals" arrives="Phase 3" /> },
       { path: '/topology', element: <PagePlaceholder title="Topology" arrives="Phase 5" /> },
       { path: '/audit', element: <PagePlaceholder title="Audit" arrives="Phase 4" /> },

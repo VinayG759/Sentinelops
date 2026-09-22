@@ -27,6 +27,15 @@ async def get_events(incident_id: UUID, _: User = Depends(current_user)):
     return await service.incident_events(incident_id)
 
 
+@router.get("/{incident_id}/metrics")
+async def get_metrics(incident_id: UUID, minutes: int = 30, _: User = Depends(current_user)):
+    """Error ratio, request rate and p95 latency around the incident, for the charts."""
+    incident = await service.get_incident(incident_id)
+    if incident is None:
+        raise HTTPException(404, "Incident not found")
+    return await service.incident_metrics(incident, minutes)
+
+
 @router.post("/{incident_id}/acknowledge", response_model=Incident)
 async def acknowledge(incident_id: UUID, user: User = Depends(require_role(Role.responder))):
     return await _transition(incident_id, "acknowledged", user)

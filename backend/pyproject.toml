@@ -11,6 +11,7 @@ dependencies = [
     "psycopg[binary,pool]>=3.2",
     "pyjwt[crypto]>=2.9",
     "kubernetes>=31.0",
+    "anthropic>=1.8.0",
 ]
 
 [dependency-groups]

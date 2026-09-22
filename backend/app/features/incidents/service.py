@@ -1,8 +1,10 @@
 """Incident lifecycle. Every state change is written together with its event."""
 
+import asyncio
+import time
 from uuid import UUID
 
-from app.core import events
+from app.core import events, prometheus
 from app.core.db import get_pool
 
 _COLUMNS = "id, service, signal, severity, status, title, fs_ticket_id, opened_at, resolved_at"
@@ -64,6 +66,46 @@ async def incident_events(incident_id: UUID) -> list[dict]:
             (incident_id,),
         )
         return await cur.fetchall()
+
+
+async def incident_metrics(incident: dict, minutes: int) -> dict:
+    """Time series for the incident's service: one shared time axis, three lines."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "select metric_prefix from public.services where name = %s", (incident["service"],)
+        )
+        row = await cur.fetchone()
+    prefix = row["metric_prefix"] if row else None
+    if not prefix:
+        return {"series": {}, "opened_at": incident["opened_at"]}
+
+    end = time.time()
+    start = end - minutes * 60
+    step = max(10, (minutes * 60) // 120)
+    window = "1m"
+    error_ratio, request_rate, p95 = await asyncio.gather(
+        prometheus.query_range(
+            f"sum(rate({prefix}_errors_total[{window}])) / "
+            f"sum(rate({prefix}_requests_total[{window}]))",
+            start, end, step,
+        ),
+        prometheus.query_range(f"sum(rate({prefix}_requests_total[{window}]))", start, end, step),
+        prometheus.query_range(
+            f"histogram_quantile(0.95, sum(rate({prefix}_request_duration_ms_bucket[{window}]))"
+            " by (le))",
+            start, end, step,
+        ),
+    )
+    return {
+        "service": incident["service"],
+        "opened_at": incident["opened_at"],
+        "resolved_at": incident["resolved_at"],
+        "series": {
+            "error_ratio": error_ratio,
+            "requests_per_second": request_rate,
+            "p95_latency_ms": p95,
+        },
+    }
 
 
 # Allowed transitions: from-status -> to-status
