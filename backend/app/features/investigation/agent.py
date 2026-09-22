@@ -21,7 +21,7 @@ from app.features.investigation.tools import TOOL_SCHEMAS, run_tool
 log = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-5"
-MAX_TOOL_CALLS = 10
+MAX_TOOL_CALLS = 14
 TIME_BUDGET_SECONDS = 120
 MAX_TOKENS = 2000
 
@@ -37,7 +37,9 @@ How to work:
 - Start from the failing service's metrics and logs, then follow the evidence: configuration, \
 the Kubernetes Service it connects to, recent rollouts, connectivity.
 - Prefer a cause you can demonstrate over one that merely sounds likely. If logs show \
-connection timeouts, prove where the connection goes and whether that port is open.
+connection timeouts, prove where the connection goes and whether that port is open; if they \
+show connection refusals or "too many clients", check the database's own settings and the \
+pool gauges. The postgres component has logs too.
 - Note what you ruled out.
 - Finish by calling submit_finding, citing the evidence_id of each tool result you relied on.
 - Be concise. Do not repeat a tool call with identical arguments."""
@@ -74,6 +76,7 @@ async def investigate(incident: dict, opening_event: dict | None = None) -> dict
     tools = [*TOOL_SCHEMAS, SUBMIT_TOOL]
     calls_made = 0
     correction_used = False
+    usage = {"input_tokens": 0, "output_tokens": 0}
 
     try:
         while True:
@@ -89,6 +92,8 @@ async def investigate(incident: dict, opening_event: dict | None = None) -> dict
                 tools=tools,
                 messages=messages,
             )
+            usage["input_tokens"] += response.usage.input_tokens
+            usage["output_tokens"] += response.usage.output_tokens
             messages.append({"role": "assistant", "content": response.content})
             blocks = [b for b in response.content if b.type == "tool_use"]
             if not blocks:
@@ -102,7 +107,8 @@ async def investigate(incident: dict, opening_event: dict | None = None) -> dict
                         await events.emit(
                             "investigation.completed", "agent",
                             finding.model_dump() | {"tool_calls": calls_made,
-                                                    "seconds": round(time.monotonic() - started)},
+                                                    "seconds": round(time.monotonic() - started),
+                                                    "usage": usage},
                             incident_id,
                         )
                         return finding.model_dump()

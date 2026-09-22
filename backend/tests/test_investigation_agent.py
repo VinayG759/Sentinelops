@@ -40,7 +40,10 @@ class FakeClaude:
 
     async def _create(self, **kwargs):
         self.requests.append(kwargs)
-        return SimpleNamespace(content=self.responses.pop(0))
+        return SimpleNamespace(
+            content=self.responses.pop(0),
+            usage=SimpleNamespace(input_tokens=100, output_tokens=50),
+        )
 
 
 @pytest.fixture
@@ -85,6 +88,8 @@ async def test_records_each_tool_call_then_returns_the_finding(monkeypatch, reco
 
     assert result["hypothesis"] == "port mismatch"
     assert fake_tools == [("get_service_metrics", {"service": "order-service"})]
+    completed = next(p for t, p in recorder if t == "investigation.completed")
+    assert completed["usage"] == {"input_tokens": 200, "output_tokens": 100}  # summed per turn
     assert [t for t, _ in recorder] == [
         "investigation.started", "investigation.step", "investigation.completed",
     ]

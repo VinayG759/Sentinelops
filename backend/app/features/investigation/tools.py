@@ -180,6 +180,32 @@ async def get_dependencies(service: str) -> dict:
     }
 
 
+async def get_database_settings() -> dict:
+    """Postgres connection limits and current usage: max_connections vs active connections."""
+
+    def read() -> dict:
+        pod = k8s.running_pod("postgres")
+        sql = (
+            "select current_setting('max_connections'), "
+            "current_setting('superuser_reserved_connections'), "
+            "(select count(*) from pg_stat_activity)"
+        )
+        out = k8s.exec_in_pod(
+            pod, ["psql", "-U", "sentinel", "-d", "sentinelops", "-Atc", sql]
+        ).strip()
+        # A refusal here is itself evidence: it means no connection slots are free.
+        if "|" not in out:
+            return {"error": out or "no output", "note": "could not query Postgres"}
+        max_conn, reserved, active = out.splitlines()[0].split("|")
+        return {
+            "max_connections": int(max_conn),
+            "superuser_reserved_connections": int(reserved),
+            "active_connections": int(active),
+        }
+
+    return await asyncio.to_thread(read)
+
+
 async def check_connectivity(from_service: str, host: str, port: int) -> dict:
     """Open a TCP connection from inside a service's pod: is host:port reachable?"""
     if port not in ALLOWED_PROBE_PORTS:
@@ -215,6 +241,7 @@ TOOLS = {
         get_network_service,
         get_recent_changes,
         get_dependencies,
+        get_database_settings,
         check_connectivity,
     )
 }
@@ -243,6 +270,7 @@ TOOL_SCHEMAS = [
         ["name"]),
     _schema(get_recent_changes, SERVICE_ARG, ["service"]),
     _schema(get_dependencies, SERVICE_ARG, ["service"]),
+    _schema(get_database_settings, {}, []),
     _schema(check_connectivity, {
         "from_service": {"type": "string", "description": "Service whose pod runs the probe"},
         "host": {"type": "string", "description": "Hostname to reach, e.g. 'postgres'"},
