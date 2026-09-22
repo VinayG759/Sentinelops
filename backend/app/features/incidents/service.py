@@ -108,8 +108,13 @@ async def incident_metrics(incident: dict, minutes: int) -> dict:
     }
 
 
-# Allowed transitions: from-status -> to-status
-_TRANSITIONS = {"acknowledged": {"triggered"}, "resolved": {"triggered", "acknowledged"}}
+# Allowed transitions: to-status -> the statuses it may be reached from.
+# "triggered" is reachable again after a failed fix is rolled back.
+_TRANSITIONS = {
+    "acknowledged": {"triggered"},
+    "resolved": {"triggered", "acknowledged"},
+    "triggered": {"acknowledged", "resolved"},
+}
 
 
 async def transition(incident_id: UUID, to: str, actor: str) -> dict | None:

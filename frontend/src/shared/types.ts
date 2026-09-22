@@ -7,4 +7,8 @@ type Schemas = components['schemas']
 export type Incident = Schemas['Incident']
 export type IncidentEvent = Schemas['Event']
 export type Scenario = Schemas['ScenarioOut']
+export type Proposal = Schemas['Proposal']
+export type ProposalDetail = Schemas['ProposalDetail'] & {
+  preview: { summary?: string; changes?: { field: string; from: unknown; to: unknown }[] }
+}
 export type Role = 'viewer' | 'responder' | 'approver' | 'admin'

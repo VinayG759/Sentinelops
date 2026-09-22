@@ -41,6 +41,9 @@ connection timeouts, prove where the connection goes and whether that port is op
 show connection refusals or "too many clients", check the database's own settings and the \
 pool gauges. The postgres component has logs too.
 - Note what you ruled out.
+- Once the cause is proven, if an action in the catalog would fix it, call propose_remediation. \
+You cannot run anything: a human reviews and approves every proposal. Propose nothing if no \
+catalogued action fits, and say so in your finding instead.
 - Finish by calling submit_finding, citing the evidence_id of each tool result you relied on.
 - Be concise. Do not repeat a tool call with identical arguments."""
 
@@ -73,7 +76,7 @@ async def investigate(incident: dict, opening_event: dict | None = None) -> dict
 
     client = _client()
     messages: list[dict] = [{"role": "user", "content": _incident_brief(incident, opening_event)}]
-    tools = [*TOOL_SCHEMAS, SUBMIT_TOOL]
+    tools = [*TOOL_SCHEMAS, _propose_tool(), SUBMIT_TOOL]
     calls_made = 0
     correction_used = False
     usage = {"input_tokens": 0, "output_tokens": 0}
@@ -119,6 +122,10 @@ async def investigate(incident: dict, opening_event: dict | None = None) -> dict
                                                 is_error=True))
                     continue
 
+                if block.name == "propose_remediation":
+                    results.append(await _propose(incident_id, block))
+                    continue
+
                 calls_made += 1
                 results.append(await _run_step(incident_id, block))
 
@@ -126,6 +133,58 @@ async def investigate(incident: dict, opening_event: dict | None = None) -> dict
     except Exception as exc:
         log.exception("investigation crashed", extra={"incident_id": str(incident_id)})
         return await _fail(incident_id, f"{type(exc).__name__}: {exc}")
+
+
+def _propose_tool() -> dict:
+    """Describe the action catalog to the model, generated from the catalog itself."""
+    from app.features.remediation.service import catalog_summary
+
+    catalogue = "\n".join(
+        f"- {a['name']}: {a['description']} Parameters: {list(a['parameters'])}"
+        for a in catalog_summary()
+    )
+    return {
+        "name": "propose_remediation",
+        "description": (
+            "Propose a fix for a human to approve. You may only choose from this catalog; "
+            "free-form commands are impossible.\n" + catalogue
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "description": "Action name from the catalog"},
+                "params": {"type": "object", "description": "Parameters for that action"},
+                "rationale": {
+                    "type": "string",
+                    "description": "Why this fixes the proven cause, in one or two sentences",
+                },
+            },
+            "required": ["action", "params", "rationale"],
+        },
+    }
+
+
+async def _propose(incident_id, block) -> dict:
+    """Validate and record a proposal. Rejections are returned to the model, not hidden."""
+    from app.features.remediation import service as remediation
+
+    args = dict(block.input)
+    try:
+        proposal = await remediation.propose(
+            incident_id, args.get("action", ""), args.get("params") or {},
+            args.get("rationale", ""),
+        )
+        body = json.dumps({"status": "awaiting human approval", "proposal_id": str(proposal["id"]),
+                           "risk": proposal["risk"]})
+        return _tool_result(block.id, body)
+    except Exception as exc:
+        log.warning("proposal rejected", extra={"incident_id": str(incident_id), "error": str(exc)})
+        await events.emit(
+            "remediation.rejected_by_policy", "system",
+            {"action": args.get("action"), "params": args.get("params"), "error": str(exc)},
+            incident_id,
+        )
+        return _tool_result(block.id, f"REJECTED: {exc}", is_error=True)
 
 
 async def _run_step(incident_id, block) -> dict:

@@ -64,6 +64,48 @@ def test_tampering_is_detected_and_located(cur):
     assert broken == target
 
 
+def _proposal(cur) -> str:
+    incident_id = cur.execute(
+        "insert into incidents (service, signal, severity, title, fingerprint) "
+        "values ('order-service', 'error_rate', 'sev1', 't', 'order-service:race') returning id"
+    ).fetchone()[0]
+    return cur.execute(
+        "insert into proposals (incident_id, action, params, rationale, risk) "
+        "values (%s, 'restart_service', '{}', 'r', 'low') returning id",
+        (incident_id,),
+    ).fetchone()[0]
+
+
+def test_a_proposal_can_only_be_approved_once(cur):
+    """Two approvers clicking at the same moment: the second update matches no rows."""
+    proposal_id = _proposal(cur)
+    claim = (
+        "update proposals set status = 'approved' "
+        "where id = %s and status = 'pending' and expires_at > now() returning id"
+    )
+    assert cur.execute(claim, (proposal_id,)).fetchone() is not None
+    assert cur.execute(claim, (proposal_id,)).fetchone() is None
+
+
+def test_an_expired_proposal_cannot_be_approved(cur):
+    proposal_id = _proposal(cur)
+    cur.execute("update proposals set expires_at = now() - interval '1 minute' where id = %s",
+                (proposal_id,))
+    claim = (
+        "update proposals set status = 'approved' "
+        "where id = %s and status = 'pending' and expires_at > now() returning id"
+    )
+    assert cur.execute(claim, (proposal_id,)).fetchone() is None
+
+
+def test_a_proposal_can_only_execute_once(cur):
+    """The unique constraint on executions.proposal_id is the last line of defence."""
+    proposal_id = _proposal(cur)
+    cur.execute("insert into executions (proposal_id) values (%s)", (proposal_id,))
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        cur.execute("insert into executions (proposal_id) values (%s)", (proposal_id,))
+
+
 def test_only_one_open_incident_per_fingerprint(cur):
     insert = (
         "insert into incidents (service, signal, severity, title, fingerprint) "

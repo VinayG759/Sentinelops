@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/app/auth'
+import { KillSwitch } from '@/features/remediation/KillSwitch'
 import { HealthIndicator } from '@/features/system/HealthIndicator'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/shared/supabase'
@@ -63,7 +64,8 @@ export function Layout() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 items-center justify-end border-b px-6">
+        <header className="flex h-12 items-center justify-end gap-4 border-b px-6">
+          <KillSwitch />
           <HealthIndicator />
         </header>
         <main className="flex-1 p-6">

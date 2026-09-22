@@ -1,5 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
+import { useProposal } from '@/features/remediation/api'
+import { ApprovalCard } from '@/features/remediation/ApprovalCard'
 import { cn } from '@/lib/utils'
 import { absoluteTime } from '@/shared/time'
 import type { IncidentEvent } from '@/shared/types'
@@ -9,18 +11,44 @@ const labels: Record<string, string> = {
   'incident.opened': 'Incident opened',
   'incident.acknowledged': 'Acknowledged',
   'incident.resolved': 'Resolved',
+  'incident.triggered': 'Reopened',
   'investigation.started': 'Investigation started',
   'investigation.step': 'Tool call',
   'investigation.completed': 'Root cause found',
   'investigation.failed': 'Investigation failed',
+  'remediation.proposed': 'Fix proposed',
+  'remediation.approved': 'Approved by human',
+  'remediation.rejected': 'Rejected by human',
+  'remediation.expired': 'Proposal expired',
+  'remediation.rejected_by_policy': 'Proposal refused by policy',
+  'execution.started': 'Executing',
+  'execution.succeeded': 'Change applied',
+  'execution.failed': 'Execution failed',
+  'execution.refused': 'Execution refused',
+  'verification.passed': 'Verified — service recovered',
+  'verification.failed': 'Verification failed',
+  'rollback.started': 'Rolling back',
+  'rollback.succeeded': 'Rolled back',
+  'rollback.failed': 'Rollback failed',
   'handler.failed': 'Internal handler failed',
 }
 
 const accents: Record<string, string> = {
   'incident.opened': 'bg-red-500',
   'incident.resolved': 'bg-emerald-500',
+  'incident.triggered': 'bg-red-500',
   'investigation.completed': 'bg-emerald-500',
   'investigation.failed': 'bg-amber-500',
+  'remediation.proposed': 'bg-blue-500',
+  'remediation.approved': 'bg-blue-500',
+  'remediation.rejected': 'bg-zinc-400',
+  'execution.succeeded': 'bg-blue-500',
+  'execution.failed': 'bg-amber-500',
+  'execution.refused': 'bg-amber-500',
+  'verification.passed': 'bg-emerald-500',
+  'verification.failed': 'bg-amber-500',
+  'rollback.succeeded': 'bg-amber-500',
+  'rollback.failed': 'bg-red-500',
   'handler.failed': 'bg-amber-500',
 }
 
@@ -143,6 +171,18 @@ function Summary({
     )
   }
 
+  if (event.type === 'remediation.proposed') {
+    return <ProposalPreview proposalId={String(payload.proposal_id)} />
+  }
+
+  if (event.type.startsWith('execution.') || event.type.startsWith('verification.')
+      || event.type.startsWith('rollback.')) {
+    const detail = payload.reason ?? payload.error ?? payload.query ?? payload.action
+    return detail ? (
+      <p className="font-mono text-[11px] text-muted-foreground">{String(detail)}</p>
+    ) : null
+  }
+
   if (event.type === 'incident.opened') {
     return (
       <p className="font-mono text-[11px] text-muted-foreground">
@@ -157,6 +197,17 @@ function Summary({
   }
 
   return null
+}
+
+/** The proposal card, inline on the timeline, with live status and approve/reject. */
+function ProposalPreview({ proposalId }: { proposalId: string }) {
+  const proposal = useProposal(proposalId)
+  if (!proposal.data) return null
+  return (
+    <div className="mt-2">
+      <ApprovalCard proposal={proposal.data} />
+    </div>
+  )
 }
 
 function argSummary(args: unknown): string {
