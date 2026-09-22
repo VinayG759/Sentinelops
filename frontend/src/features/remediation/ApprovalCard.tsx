@@ -1,20 +1,20 @@
+import { Check, Clock, GitPullRequest, RotateCcw, ShieldCheck, Target, X } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ProposalDetail } from '@/shared/types'
+import { StatusDot, Tag, type Tone } from '@/shared/ui/primitives'
 import { useMe } from '@/shared/useMe'
 import { useDecide } from './api'
 
-const riskStyle: Record<ProposalDetail['risk'], string> = {
-  low: 'bg-zinc-100 text-zinc-700',
-  medium: 'bg-amber-50 text-amber-800 ring-1 ring-amber-600/20',
-  high: 'bg-red-50 text-red-700 ring-1 ring-red-600/20',
-}
+const riskTone: Record<ProposalDetail['risk'], Tone> = { low: 'ok', medium: 'sev2', high: 'sev1' }
 
 /**
- * The remediation shown the way engineers already review changes: what changes, why,
- * who it affects, how we will know it worked, and how to undo it — then Approve / Reject.
+ * Remediation reviewed the way engineers already review change: a proposed diff, the
+ * reasoning, the blast radius, the check that will prove it, and the way back.
  * Keyboard: A approves, R rejects.
  */
 export function ApprovalCard({
@@ -29,130 +29,198 @@ export function ApprovalCard({
   const [reason, setReason] = useState('')
   const pending = proposal.status === 'pending'
   const canDecide = can('approver') && pending
+  const tone = riskTone[proposal.risk]
+
+  const act = (decision: 'approve' | 'reject') => {
+    decide.mutate(
+      { id: proposal.id, decision, reason },
+      {
+        onSuccess: () =>
+          decision === 'approve'
+            ? toast.success('Approved — executing now', {
+                description: 'Recovery is verified for 2 minutes; a failed fix is undone automatically.',
+              })
+            : toast('Rejected', { description: 'Nothing was changed.' }),
+        onError: (error) => toast.error('Could not record decision', { description: error.message }),
+      },
+    )
+  }
 
   useEffect(() => {
     if (!canDecide) return
     const onKey = (e: KeyboardEvent) => {
-      const typing = (e.target as HTMLElement)?.tagName === 'INPUT'
+      const typing = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)
       if (typing || e.metaKey || e.ctrlKey) return
-      if (e.key.toLowerCase() === 'a') decide.mutate({ id: proposal.id, decision: 'approve', reason })
-      if (e.key.toLowerCase() === 'r') decide.mutate({ id: proposal.id, decision: 'reject', reason })
+      if (e.key.toLowerCase() === 'a') act('approve')
+      if (e.key.toLowerCase() === 'r') act('reject')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canDecide, decide, proposal.id, reason])
+  })
 
   return (
-    <div className="rounded-lg border">
-      <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2.5">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn('panel overflow-hidden', pending && 'glow-signal')}
+    >
+      <header className="flex flex-wrap items-center gap-3 border-b border-hairline bg-surface-raised/60 px-4 py-3">
+        <GitPullRequest className="size-4 text-signal" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{proposal.title}</span>
+            <code className="font-mono text-[10.5px] text-muted-foreground">{proposal.action}</code>
+          </div>
+          <p className="mt-0.5 text-[11.5px] text-muted-foreground">{proposal.description}</p>
+        </div>
         <div className="flex items-center gap-2">
-          <span className="font-medium">{proposal.title}</span>
-          <code className="font-mono text-[11px] text-muted-foreground">{proposal.action}</code>
+          <Tag tone={tone}>{proposal.risk} risk</Tag>
+          <Tag tone={pending ? 'signal' : proposal.status === 'executed' ? 'ok' : 'muted'}>
+            {pending && <StatusDot tone="signal" live />}
+            {proposal.status}
+          </Tag>
         </div>
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className={cn('rounded px-1.5 py-0.5 font-medium uppercase', riskStyle[proposal.risk])}>
-            {proposal.risk} risk
-          </span>
-          <span className="text-muted-foreground">
-            {proposal.approvals_required} approval{proposal.approvals_required > 1 ? 's' : ''} required
-          </span>
-          <StatusPill status={proposal.status} />
-        </div>
-      </div>
+      </header>
 
-      <div className="space-y-3 px-4 py-3">
-        <Field label="Change">
-          <p>{proposal.preview.summary}</p>
-          <div className="mt-1.5 space-y-0.5 font-mono text-[11px]">
+      <div className="grid gap-px bg-hairline md:grid-cols-[1.25fr_1fr]">
+        <div className="bg-surface p-4">
+          <Label>Proposed change</Label>
+          <p className="mt-1 text-[12.5px]">
+            {proposal.preview.summary === 'preview unavailable' ? (
+              <span className="text-sev2">
+                Live preview unavailable — the cluster is unreachable right now. The change itself
+                is unaffected: {proposal.action}({formatParams(proposal.params)}).
+              </span>
+            ) : (
+              proposal.preview.summary
+            )}
+          </p>
+          <div className="mt-2 overflow-hidden rounded-lg border border-hairline font-mono text-[11.5px] empty:hidden">
             {proposal.preview.changes?.map((change) => (
-              <div key={change.field} className="flex flex-wrap gap-2">
-                <span className="text-muted-foreground">{change.field}</span>
-                <span className="text-red-700">- {String(change.from)}</span>
-                <span className="text-emerald-700">+ {String(change.to)}</span>
+              <div key={change.field} className="divide-y divide-hairline">
+                <div className="bg-surface-sunken px-3 py-1.5 text-[10.5px] text-muted-foreground">
+                  {change.field}
+                </div>
+                <div className="bg-sev1/8 px-3 py-1.5 text-sev1">- {String(change.from)}</div>
+                <div className="bg-ok/8 px-3 py-1.5 text-ok">+ {String(change.to)}</div>
               </div>
             ))}
           </div>
-        </Field>
 
-        <Field label="Why">{proposal.rationale}</Field>
-        <Field label="Affects">
-          <span className="font-mono text-[11px]">{proposal.affected_services.join(', ')}</span>
-        </Field>
-        <Field label="Verify">
-          <code className="font-mono text-[11px] break-all">{proposal.verify_query}</code>
-          <p className="mt-0.5 text-muted-foreground">
-            Checked for 2 minutes after execution. If it fails, the change is undone automatically.
-          </p>
-        </Field>
-        <Field label="Rollback">{proposal.rollback_plan}</Field>
-        <Field label="Policy">
-          <ul className="list-inside list-disc text-muted-foreground">
-            {proposal.policy_reasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
-        </Field>
-        {showIncidentLink && (
-          <Field label="Incident">
-            <Link to={`/incidents/${proposal.incident_id}`} className="underline underline-offset-4">
-              {proposal.incident_id.slice(0, 8)}
+          <Label className="mt-4">Why</Label>
+          <p className="mt-1 text-[12.5px]">{proposal.rationale}</p>
+        </div>
+
+        <div className="space-y-3 bg-surface p-4">
+          <Detail icon={Target} label="Affects">
+            <div className="flex flex-wrap gap-1">
+              {proposal.affected_services.map((service) => (
+                <Tag key={service}>{service}</Tag>
+              ))}
+            </div>
+          </Detail>
+
+          <Detail icon={ShieldCheck} label="Verified by">
+            <code className="block break-all font-mono text-[10.5px] text-muted-foreground">
+              {proposal.verify_query}
+            </code>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Checked for 2 minutes. A fix that doesn&apos;t work is undone automatically.
+            </p>
+          </Detail>
+
+          <Detail icon={RotateCcw} label="Rollback">
+            <p className="text-[11.5px] text-muted-foreground">{proposal.rollback_plan}</p>
+          </Detail>
+
+          <Detail icon={Clock} label="Policy">
+            <ul className="space-y-0.5 text-[11.5px] text-muted-foreground">
+              {proposal.policy_reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </Detail>
+
+          {showIncidentLink && (
+            <Link
+              to={`/incidents/${proposal.incident_id}`}
+              className="inline-block font-mono text-[11px] text-signal hover:underline"
+            >
+              incident {proposal.incident_id.slice(0, 8)} →
             </Link>
-          </Field>
-        )}
+          )}
+        </div>
       </div>
 
-      {canDecide && (
-        <div className="flex items-center gap-2 border-t px-4 py-2.5">
+      {canDecide ? (
+        <footer className="flex flex-wrap items-center gap-2 border-t border-hairline bg-surface-raised/40 px-4 py-3">
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason (optional)"
-            className="h-8 flex-1 rounded-md border bg-background px-2.5 text-sm"
+            className="h-9 min-w-40 flex-1 rounded-lg border border-hairline bg-surface-sunken px-3 text-[12.5px] outline-none placeholder:text-muted-foreground focus:border-signal/40"
           />
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={decide.isPending}
-            onClick={() => decide.mutate({ id: proposal.id, decision: 'reject', reason })}
-          >
-            Reject <kbd className="ml-1.5 font-mono text-[10px] text-muted-foreground">R</kbd>
+          <Button size="sm" variant="outline" disabled={decide.isPending} onClick={() => act('reject')}>
+            <X className="size-3.5" /> Reject <Kbd>R</Kbd>
           </Button>
           <Button
             size="sm"
             disabled={decide.isPending}
-            onClick={() => decide.mutate({ id: proposal.id, decision: 'approve', reason })}
+            onClick={() => act('approve')}
+            className="bg-signal text-primary-foreground hover:bg-signal/90"
           >
-            Approve <kbd className="ml-1.5 font-mono text-[10px] opacity-70">A</kbd>
+            <Check className="size-3.5" /> Approve <Kbd className="opacity-70">A</Kbd>
           </Button>
-        </div>
+        </footer>
+      ) : (
+        pending && (
+          <footer className="border-t border-hairline px-4 py-3 text-[12px] text-muted-foreground">
+            Waiting for an approver — your role cannot approve changes.
+          </footer>
+        )
       )}
-      {!can('approver') && pending && (
-        <p className="border-t px-4 py-2.5 text-muted-foreground">
-          Waiting for an approver. Your role cannot approve changes.
-        </p>
-      )}
-      {decide.isError && (
-        <p className="border-t px-4 py-2.5 text-destructive">{decide.error.message}</p>
-      )}
-    </div>
+    </motion.div>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function formatParams(params: Record<string, unknown>): string {
+  return Object.entries(params)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(', ')
+}
+
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="grid grid-cols-[88px_1fr] gap-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="min-w-0">{children}</div>
+    <div className={cn('text-[10.5px] uppercase tracking-wider text-muted-foreground', className)}>
+      {children}
     </div>
   )
 }
 
-function StatusPill({ status }: { status: ProposalDetail['status'] }) {
-  const style =
-    status === 'pending'
-      ? 'bg-amber-50 text-amber-800'
-      : status === 'approved' || status === 'executed'
-        ? 'bg-emerald-50 text-emerald-700'
-        : 'bg-zinc-100 text-zinc-600'
-  return <span className={cn('rounded px-1.5 py-0.5 font-medium', style)}>{status}</span>
+function Detail({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: typeof Target
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex gap-2.5">
+      <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <Label>{label}</Label>
+        <div className="mt-1">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function Kbd({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <kbd className={cn('ml-1 rounded border border-white/15 px-1 font-mono text-[9.5px]', className)}>
+      {children}
+    </kbd>
+  )
 }

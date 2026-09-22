@@ -1,17 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { cn } from '@/lib/utils'
 import { api } from '@/shared/api'
+import { StatusDot, type Tone } from '@/shared/ui/primitives'
 
 type Check = { status: 'ok' | 'error' | 'skipped'; detail: string; ms: number }
 type Health = { status: 'ok' | 'degraded'; checks: Record<string, Check> }
 
-const dot: Record<Check['status'], string> = {
-  ok: 'bg-emerald-500',
-  error: 'bg-red-500',
-  skipped: 'bg-zinc-300',
-}
+const tone: Record<Check['status'], Tone> = { ok: 'ok', error: 'sev1', skipped: 'muted' }
 
-/** One dot per dependency. Hover for the detail — tells you *which* layer is down. */
+/** One dot per dependency — a red dot says which layer is down, before you ask. */
 export function HealthIndicator() {
   const { data, isError } = useQuery({
     queryKey: ['health'],
@@ -19,20 +15,30 @@ export function HealthIndicator() {
     refetchInterval: 10_000,
   })
 
-  if (isError) {
-    return <span className="text-xs text-red-600">Backend unreachable</span>
+  if (isError) return <span className="text-[11px] text-sev1">Backend unreachable</span>
+  if (!data) {
+    return (
+      <div className="flex items-center gap-3">
+        {['database', 'prometheus', 'kubernetes', 'freshservice'].map((name) => (
+          <span key={name} className="flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground opacity-40">
+            <StatusDot tone="muted" />
+            <span className="hidden lg:inline">{name}</span>
+          </span>
+        ))}
+      </div>
+    )
   }
 
   return (
     <div className="flex items-center gap-3">
-      {Object.entries(data?.checks ?? {}).map(([name, check]) => (
+      {Object.entries(data.checks).map(([name, check]) => (
         <span
           key={name}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          className="flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground"
           title={`${name}: ${check.detail} (${check.ms} ms)`}
         >
-          <span className={cn('size-1.5 rounded-full', dot[check.status])} />
-          {name}
+          <StatusDot tone={tone[check.status]} live={check.status === 'error'} />
+          <span className="hidden lg:inline">{name}</span>
         </span>
       ))}
     </div>

@@ -163,7 +163,7 @@ async def approval_card(proposal: dict) -> dict:
     action, params = actions.validate(proposal["action"], proposal["params"])
     decision = policy.decide(action, params)
     try:
-        preview = await asyncio.to_thread(action.preview, params)
+        preview = await asyncio.wait_for(asyncio.to_thread(action.preview, params), timeout=6)
     except Exception as exc:  # the cluster may be mid-restart; the card still renders
         log.warning("preview failed", extra={"proposal_id": str(proposal["id"])})
         preview = {"summary": "preview unavailable", "error": str(exc), "changes": []}

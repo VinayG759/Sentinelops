@@ -68,6 +68,16 @@ async def incident_events(incident_id: UUID) -> list[dict]:
         return await cur.fetchall()
 
 
+async def recent_events(limit: int) -> list[dict]:
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "select id, incident_id, type, actor, payload, created_at, hash "
+            "from public.events order by id desc limit %s",
+            (limit,),
+        )
+        return await cur.fetchall()
+
+
 async def incident_metrics(incident: dict, minutes: int) -> dict:
     """Time series for the incident's service: one shared time axis, three lines."""
     async with get_pool().connection() as conn:

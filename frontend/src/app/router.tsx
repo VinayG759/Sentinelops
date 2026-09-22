@@ -4,6 +4,7 @@ import { RequireAuth } from '@/app/auth'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { IncidentDetailPage } from '@/features/incidents/IncidentDetailPage'
 import { IncidentsPage } from '@/features/incidents/IncidentsPage'
+import { OverviewPage } from '@/features/overview/OverviewPage'
 import { ApprovalsPage } from '@/features/remediation/ApprovalsPage'
 import { SimulatorPage } from '@/features/simulator/SimulatorPage'
 import { PagePlaceholder } from '@/shared/PagePlaceholder'
@@ -18,7 +19,8 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/incidents" replace /> },
+      { index: true, element: <Navigate to="/overview" replace /> },
+      { path: '/overview', element: <OverviewPage /> },
       { path: '/incidents', element: <IncidentsPage /> },
       { path: '/incidents/:id', element: <IncidentDetailPage /> },
       { path: '/approvals', element: <ApprovalsPage /> },

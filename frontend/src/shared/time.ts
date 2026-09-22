@@ -4,7 +4,7 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
   ['minute', 60],
   ['second', 1],
 ]
-const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' })
+const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'narrow' })
 
 /** "3 min ago". Pair with `absoluteTime` in a title attribute for the exact moment. */
 export function relativeTime(iso: string, now = Date.now()): string {

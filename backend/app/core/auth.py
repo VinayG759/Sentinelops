@@ -6,6 +6,7 @@ project's public keys (JWKS), then look up the caller's role in `profiles`.
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import IntEnum
 from functools import lru_cache
 
@@ -39,6 +40,11 @@ def _jwks_client() -> jwt.PyJWKClient:
     return jwt.PyJWKClient(f"{get_settings().supabase_url}/auth/v1/.well-known/jwks.json")
 
 
+# Laptops drift. Without tolerance, a clock a few seconds behind Supabase makes every
+# token look issued-in-the-future and all logins fail with no visible cause.
+CLOCK_SKEW_LEEWAY = timedelta(seconds=90)
+
+
 def decode_token(token: str) -> dict:
     """Verify a Supabase access token and return its claims. Raises jwt.InvalidTokenError."""
     signing_key = _jwks_client().get_signing_key_from_jwt(token)
@@ -47,6 +53,7 @@ def decode_token(token: str) -> dict:
         signing_key.key,
         algorithms=["ES256", "RS256"],
         audience="authenticated",
+        leeway=CLOCK_SKEW_LEEWAY,
     )
 
 

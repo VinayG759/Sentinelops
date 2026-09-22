@@ -18,11 +18,18 @@ class ScenarioOut(BaseModel):
     state: Literal["active", "inactive", "unknown"]
 
 
+STATE_TIMEOUT_SECONDS = 6
+
+
 async def _describe(s: Scenario) -> ScenarioOut:
     try:
-        state = "active" if await asyncio.to_thread(s.is_active) else "inactive"
+        # Bounded: a missing cluster must not leave the page loading forever.
+        active = await asyncio.wait_for(
+            asyncio.to_thread(s.is_active), timeout=STATE_TIMEOUT_SECONDS
+        )
+        state = "active" if active else "inactive"
     except Exception:
-        state = "unknown"  # e.g. Postgres mid-restart
+        state = "unknown"  # cluster unreachable, or Postgres mid-restart
     return ScenarioOut(name=s.name, title=s.title, description=s.description, state=state)
 
 

@@ -1,3 +1,4 @@
+import { Loadable } from '@/shared/ui/Loadable'
 import { useProposal, useProposals } from './api'
 import { ApprovalCard } from './ApprovalCard'
 
@@ -52,6 +53,9 @@ export function ApprovalsPage() {
 /** The list gives ids; the card needs the full detail (live preview from the cluster). */
 function LoadedCard({ id }: { id: string }) {
   const proposal = useProposal(id)
-  if (!proposal.data) return null
-  return <ApprovalCard proposal={proposal.data} showIncidentLink />
+  return (
+    <Loadable query={proposal} skeleton={<div className="panel h-64 animate-pulse" />}>
+      {(data) => <ApprovalCard proposal={data} showIncidentLink />}
+    </Loadable>
+  )
 }

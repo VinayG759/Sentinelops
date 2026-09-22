@@ -7,6 +7,13 @@ from app.features.incidents import service
 from app.features.incidents.schemas import Event, Incident, Status
 
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
+events_router = APIRouter(prefix="/api/events", tags=["incidents"])
+
+
+@events_router.get("", response_model=list[Event])
+async def recent_events(limit: int = 20, _: User = Depends(current_user)):
+    """The newest events across all incidents — the activity feed on the overview."""
+    return await service.recent_events(min(limit, 100))
 
 
 @router.get("", response_model=list[Incident])

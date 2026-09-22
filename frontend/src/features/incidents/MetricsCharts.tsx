@@ -12,10 +12,25 @@ import type { IncidentMetrics } from './api'
 
 type Series = keyof IncidentMetrics['series']
 
-const charts: { key: Series; label: string; format: (v: number) => string }[] = [
-  { key: 'error_ratio', label: 'Error ratio', format: (v) => `${(v * 100).toFixed(0)}%` },
-  { key: 'requests_per_second', label: 'Requests / second', format: (v) => v.toFixed(1) },
-  { key: 'p95_latency_ms', label: 'p95 latency (ms)', format: (v) => v.toFixed(0) },
+const charts: { key: Series; label: string; color: string; format: (v: number) => string }[] = [
+  {
+    key: 'error_ratio',
+    label: 'Error ratio',
+    color: 'var(--sev1)',
+    format: (v) => `${(v * 100).toFixed(0)}%`,
+  },
+  {
+    key: 'requests_per_second',
+    label: 'Requests / second',
+    color: 'var(--signal)',
+    format: (v) => v.toFixed(1),
+  },
+  {
+    key: 'p95_latency_ms',
+    label: 'p95 latency (ms)',
+    color: 'var(--sev2)',
+    format: (v) => v.toFixed(0),
+  },
 ]
 
 const clock = (ts: number) =>
@@ -28,12 +43,22 @@ export function MetricsCharts({ metrics }: { metrics: IncidentMetrics }) {
   const domain = timeDomain(metrics)
 
   return (
-    <div className="mt-4 space-y-4">
-      {charts.map(({ key, label, format }) => {
+    <div className="space-y-3">
+      {charts.map(({ key, label, color, format }) => {
         const data = metrics.series[key].map(([ts, value]) => ({ ts, value }))
+        const latest = data.at(-1)?.value
         return (
-          <div key={key} className="rounded-lg border p-3">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">{label}</div>
+          <div key={key} className="panel p-4">
+            <div className="mb-2 flex items-baseline justify-between">
+              <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                {label}
+              </div>
+              {latest != null && (
+                <div className="font-mono text-[13px]" style={{ color }}>
+                  {format(latest)}
+                </div>
+              )}
+            </div>
             {data.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">No data in this window</p>
             ) : (
@@ -60,15 +85,22 @@ export function MetricsCharts({ metrics }: { metrics: IncidentMetrics }) {
                   <Tooltip
                     labelFormatter={(ts) => clock(Number(ts))}
                     formatter={(value) => [format(Number(value)), label]}
-                    contentStyle={{ fontSize: 12, borderRadius: 6 }}
+                    contentStyle={{
+                      fontSize: 11,
+                      borderRadius: 8,
+                      background: 'var(--popover)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--foreground)',
+                    }}
+                    cursor={{ stroke: 'var(--muted-foreground)', strokeDasharray: '3 3' }}
                   />
-                  <ReferenceLine x={openedAt} stroke="#dc2626" strokeDasharray="3 3"
-                    label={{ value: 'opened', fontSize: 10, fill: '#dc2626', position: 'insideTopLeft' }} />
+                  <ReferenceLine x={openedAt} stroke="var(--sev1)" strokeDasharray="3 3"
+                    label={{ value: 'opened', fontSize: 9, fill: 'var(--sev1)', position: 'insideTopLeft' }} />
                   {resolvedAt && (
-                    <ReferenceLine x={resolvedAt} stroke="#059669" strokeDasharray="3 3"
-                      label={{ value: 'resolved', fontSize: 10, fill: '#059669', position: 'insideTopRight' }} />
+                    <ReferenceLine x={resolvedAt} stroke="var(--ok)" strokeDasharray="3 3"
+                      label={{ value: 'resolved', fontSize: 9, fill: 'var(--ok)', position: 'insideTopRight' }} />
                   )}
-                  <Line type="monotone" dataKey="value" stroke="currentColor" strokeWidth={1.5}
+                  <Line type="monotone" dataKey="value" stroke={color} strokeWidth={1.75}
                     dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>

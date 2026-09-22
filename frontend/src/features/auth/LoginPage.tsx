@@ -1,3 +1,5 @@
+import { Shield } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -19,7 +21,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
 
   if (session) {
-    const from = (location.state as { from?: string } | null)?.from ?? '/incidents'
+    const from = (location.state as { from?: string } | null)?.from ?? '/overview'
     return <Navigate to={from} replace />
   }
 
@@ -35,27 +37,50 @@ export function LoginPage() {
     setBusy(false)
     if (error) return setError(error.message)
     if (mode === 'signup' && !data.session) {
-      setNotice('Check your email to confirm your account, then sign in.')
+      setNotice('Check your email to confirm the account, then sign in.')
       setMode('signin')
     }
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-6">
-      <div className="w-full max-w-sm">
-        <div className="mb-6">
-          <div className="text-sm font-semibold tracking-tight">SentinelOps</div>
-          <h1 className="mt-4 text-xl font-semibold tracking-tight">
-            {mode === 'signin' ? 'Sign in' : 'Create an account'}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Safety-gated remediation for your infrastructure.
-          </p>
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden p-6">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-70"
+        style={{
+          background:
+            'radial-gradient(60% 50% at 50% 0%, oklch(0.72 0.145 220 / 12%), transparent 70%)',
+        }}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative w-full max-w-sm"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-signal/12 ring-1 ring-signal/25">
+            <Shield className="size-4 text-signal" />
+          </div>
+          <div>
+            <div className="font-semibold tracking-tight">SentinelOps</div>
+            <div className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground">
+              autonomous sre · safety gated
+            </div>
+          </div>
         </div>
 
-        <form onSubmit={submit} className="space-y-4 rounded-lg border bg-background p-5">
+        <h1 className="mt-7 text-xl font-semibold tracking-tight">
+          {mode === 'signin' ? 'Sign in' : 'Create an account'}
+        </h1>
+        <p className="mt-1 text-[12.5px] text-muted-foreground">
+          Detect, diagnose and fix production incidents — with a human in the loop.
+        </p>
+
+        <form onSubmit={submit} className="panel mt-5 space-y-4 p-5">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-[11.5px]">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -63,10 +88,13 @@ export function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="bg-surface-sunken"
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-[11.5px]">
+              Password
+            </Label>
             <Input
               id="password"
               type="password"
@@ -75,26 +103,31 @@ export function LoginPage() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="bg-surface-sunken"
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {notice && <p className="text-sm text-muted-foreground">{notice}</p>}
-          <Button type="submit" className="w-full" disabled={busy}>
+          {error && <p className="text-[12px] text-sev1">{error}</p>}
+          {notice && <p className="text-[12px] text-muted-foreground">{notice}</p>}
+          <Button
+            type="submit"
+            disabled={busy}
+            className="w-full bg-signal text-primary-foreground hover:bg-signal/90"
+          >
             {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-4 text-center text-[12px] text-muted-foreground">
           {mode === 'signin' ? 'No account yet?' : 'Already have an account?'}{' '}
           <button
             type="button"
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="text-signal underline-offset-4 hover:underline"
             onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
           >
             {mode === 'signin' ? 'Create one' : 'Sign in'}
           </button>
         </p>
-      </div>
+      </motion.div>
     </div>
   )
 }
