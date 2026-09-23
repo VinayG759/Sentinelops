@@ -17,3 +17,7 @@ dist/
 # Local
 *.kubeconfig
 .DS_Store
+
+# Event material from the organisers — not ours to publish
+project guidelines/
+.gstack/
