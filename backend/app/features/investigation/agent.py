@@ -177,6 +177,22 @@ async def _propose(incident_id, block) -> dict:
         body = json.dumps({"status": "awaiting human approval", "proposal_id": str(proposal["id"]),
                            "risk": proposal["risk"]})
         return _tool_result(block.id, body)
+    except remediation.AlreadyProposed as exc:
+        # Same outage, several incidents: the fix is already queued for a human. Say so on
+        # this incident's timeline too, so its story is not missing the proposal.
+        await events.emit(
+            "remediation.reused", "agent",
+            {"proposal_id": str(exc.proposal["id"]), "action": exc.proposal["action"]},
+            incident_id,
+        )
+        return _tool_result(
+            block.id,
+            json.dumps({
+                "status": "identical fix is already awaiting approval — nothing more to propose",
+                "proposal_id": str(exc.proposal["id"]),
+                "next": "Stop investigating. Call submit_finding now with the evidence you have.",
+            }),
+        )
     except Exception as exc:
         log.warning("proposal rejected", extra={"incident_id": str(incident_id), "error": str(exc)})
         await events.emit(
@@ -227,6 +243,9 @@ async def _fail(incident_id, reason: str) -> None:
     return None
 
 
+MAX_INVESTIGATIONS_PER_INCIDENT = 3
+
+
 @events.on("incident.opened")
 async def _investigate_new_incident(event: events.Event) -> None:
     from app.features.incidents import service  # local import keeps module import order simple
@@ -237,3 +256,23 @@ async def _investigate_new_incident(event: events.Event) -> None:
     incident = await service.get_incident(event["incident_id"])
     if incident:
         await investigate(incident, event)
+
+
+@events.on("remediation.expired")
+async def _reinvestigate_after_expiry(event: events.Event) -> None:
+    """A proposal nobody decided on leaves the incident stranded: no new detection fires
+    for an already-open incident, so without this it would sit there forever. Capped so a
+    permanently broken system cannot loop the agent (and the bill)."""
+    from app.features.incidents import service
+
+    incident = await service.get_incident(event["incident_id"])
+    if not incident or incident["status"] == "resolved":
+        return
+
+    past = [e for e in await service.incident_events(incident["id"])
+            if e["type"] == "investigation.started"]
+    if len(past) >= MAX_INVESTIGATIONS_PER_INCIDENT:
+        log.warning("investigation cap reached; leaving it to a human",
+                    extra={"incident_id": str(incident["id"])})
+        return
+    await investigate(incident)

@@ -147,6 +147,50 @@ async def test_stopping_without_a_finding_is_a_failure(monkeypatch, recorder, fa
     assert "without calling submit_finding" in recorder[-1][1]["reason"]
 
 
+def patch_incident_service(monkeypatch, incident: dict, history: list):
+    from app.features.incidents import service as incidents_service
+
+    async def get_incident(_):
+        return incident
+
+    async def incident_events(_):
+        return history
+
+    monkeypatch.setattr(incidents_service, "get_incident", get_incident)
+    monkeypatch.setattr(incidents_service, "incident_events", incident_events)
+
+
+async def test_expiry_reinvestigates_until_the_cap(monkeypatch):
+    """An expired proposal must not strand the incident — but must not loop forever either."""
+    started: list = []
+    history: list = []
+    patch_incident_service(monkeypatch, dict(INCIDENT, status="triggered"), history)
+
+    async def fake_investigate(inc, opening=None):
+        started.append(inc["id"])
+        history.append({"type": "investigation.started"})
+
+    monkeypatch.setattr(agent, "investigate", fake_investigate)
+
+    for _ in range(5):
+        await agent._reinvestigate_after_expiry({"incident_id": INCIDENT["id"]})
+
+    assert len(started) == agent.MAX_INVESTIGATIONS_PER_INCIDENT
+
+
+async def test_expiry_does_not_reinvestigate_a_resolved_incident(monkeypatch):
+    started: list = []
+    patch_incident_service(monkeypatch, dict(INCIDENT, status="resolved"), [])
+
+    async def fake_investigate(inc, opening=None):
+        started.append(inc["id"])
+
+    monkeypatch.setattr(agent, "investigate", fake_investigate)
+
+    await agent._reinvestigate_after_expiry({"incident_id": INCIDENT["id"]})
+    assert started == []
+
+
 async def test_a_failing_tool_does_not_crash_the_run(monkeypatch, recorder):
     async def boom(name, args):
         raise RuntimeError("kubernetes unreachable")

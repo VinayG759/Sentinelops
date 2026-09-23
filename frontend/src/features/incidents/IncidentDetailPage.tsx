@@ -26,11 +26,11 @@ function phasesFrom(events: IncidentEvent[], incident: Incident): Phase[] {
   const investigating = has('investigation.started')
   const diagnosed = has('investigation.completed')
   const investigationFailed = has('investigation.failed')
-  const proposed = has('remediation.proposed')
+  const proposed = has('remediation.proposed') || has('remediation.reused')
   const approved = has('remediation.approved')
   const rejected = has('remediation.rejected')
   const executed = has('execution.succeeded')
-  const verified = has('verification.passed')
+  const verified = has('verification.passed') || has('incident.resolved_by_sibling')
   const rolledBack = has('rollback.succeeded')
 
   const step = (done: boolean, active: boolean, failed = false): Phase['state'] =>

@@ -29,6 +29,7 @@ def world(monkeypatch):
         "healthy": True,
         "transitions": [],
         "finished": [],
+        "sibling_incidents": [],
     }
 
     async def emit(type, actor, payload=None, incident_id=None):
@@ -51,6 +52,9 @@ def world(monkeypatch):
         state["transitions"].append(to)
         return {"status": to}
 
+    async def list_incidents(status):
+        return state["sibling_incidents"] if status == "triggered" else []
+
     async def finish(execution_id, status, result):
         state["finished"].append(status)
 
@@ -66,6 +70,7 @@ def world(monkeypatch):
     monkeypatch.setattr(executor, "_mark_proposal_executed", noop)
     monkeypatch.setattr(executor, "_finish", finish)
     monkeypatch.setattr(executor.incidents, "transition", transition)
+    monkeypatch.setattr(executor.incidents, "list_incidents", list_incidents)
     monkeypatch.setattr(executor, "SETTLE_SECONDS", 0)
     monkeypatch.setattr(executor, "VERIFY_INTERVAL_SECONDS", 0)
 
@@ -83,8 +88,24 @@ def world(monkeypatch):
         def verify_query(self, params):
             return "vector(1)"
 
-    monkeypatch.setattr(executor.actions, "validate", lambda name, params: (FakeAction(), params))
+        def affected_services(self, params):
+            return ["order-service"]
+
+    action = FakeAction()
+    monkeypatch.setattr(executor.actions, "validate", lambda name, params: (action, params))
+    monkeypatch.setitem(executor.actions.CATALOG, "scale_service", action)
     return state
+
+
+async def test_one_fix_resolves_the_other_incidents_it_cured(world):
+    """One outage opens an incident per service; the approved fix closes the siblings too."""
+    sibling = {"id": uuid4(), "service": "order-service"}
+    world["sibling_incidents"] = [sibling]
+
+    await executor.run(PROPOSAL["id"])
+
+    assert world["transitions"] == ["resolved", "resolved"]
+    assert "incident.resolved_by_sibling" in world["events"]
 
 
 async def test_happy_path_executes_verifies_and_resolves(world):

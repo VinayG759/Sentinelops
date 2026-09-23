@@ -18,6 +18,8 @@ const labels: Record<string, string> = {
   'investigation.completed': 'Root cause found',
   'investigation.failed': 'Investigation failed',
   'remediation.proposed': 'Fix proposed',
+  'remediation.reused': 'Same fix already proposed for another incident',
+  'incident.resolved_by_sibling': 'Resolved by a fix applied elsewhere',
   'remediation.approved': 'Approved by human',
   'remediation.rejected': 'Rejected by human',
   'remediation.expired': 'Proposal expired',
@@ -43,6 +45,8 @@ const tones: Record<string, Tone> = {
   'investigation.completed': 'ok',
   'investigation.failed': 'sev2',
   'remediation.proposed': 'signal',
+  'remediation.reused': 'signal',
+  'incident.resolved_by_sibling': 'ok',
   'remediation.approved': 'signal',
   'remediation.rejected': 'muted',
   'execution.succeeded': 'signal',
@@ -214,7 +218,7 @@ function Summary({
     )
   }
 
-  if (event.type === 'remediation.proposed') {
+  if (event.type === 'remediation.proposed' || event.type === 'remediation.reused') {
     return <ProposalPreview proposalId={String(payload.proposal_id)} />
   }
 

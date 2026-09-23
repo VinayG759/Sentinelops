@@ -163,6 +163,7 @@ async def _verify_or_rollback(execution_id, proposal, action, params, before) ->
             await events.emit("verification.passed", "system",
                               {"proposal_id": str(proposal["id"]), "query": query}, incident_id)
             await incidents.transition(incident_id, "resolved", "system")
+            await _resolve_incidents_cured_by(proposal, action, params, incident_id)
             return
         await asyncio.sleep(VERIFY_INTERVAL_SECONDS)
 
@@ -170,6 +171,26 @@ async def _verify_or_rollback(execution_id, proposal, action, params, before) ->
                       {"proposal_id": str(proposal["id"]), "query": query,
                        "waited_seconds": VERIFY_TIMEOUT_SECONDS}, incident_id)
     await _rollback(execution_id, proposal, action, params, before)
+
+
+async def _resolve_incidents_cured_by(proposal, action, params, fixed_incident_id) -> None:
+    """One outage opens one incident per affected service, but one fix cures them all.
+    Close the siblings whose service the change covered and whose signal has recovered,
+    instead of leaving them open with nothing left to do."""
+    affected = set(action.affected_services(params))
+    for incident in await incidents.list_incidents("triggered") + await incidents.list_incidents(
+        "acknowledged"
+    ):
+        if incident["id"] == fixed_incident_id or incident["service"] not in affected:
+            continue
+        if not await _check(actions.CATALOG[proposal["action"]].verify_query(params)):
+            continue
+        await incidents.transition(incident["id"], "resolved", "system")
+        await events.emit(
+            "incident.resolved_by_sibling", "system",
+            {"proposal_id": str(proposal["id"]), "fixed_incident": str(fixed_incident_id)},
+            incident["id"],
+        )
 
 
 async def _check(query: str) -> bool:

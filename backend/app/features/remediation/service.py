@@ -35,9 +35,34 @@ async def set_autonomy_paused(paused: bool, actor: str) -> bool:
     return paused
 
 
+class AlreadyProposed(Exception):
+    """An identical fix is already waiting for a human."""
+
+    def __init__(self, proposal: dict):
+        self.proposal = proposal
+        super().__init__(f"identical proposal {proposal['id']} is already pending approval")
+
+
+async def _identical_pending(action_name: str, params: dict) -> dict | None:
+    """One outage often opens several incidents; proposing the same fix per incident would
+    show a human the same card twice and patch the cluster twice."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            f"select {PROPOSAL_COLUMNS} from public.proposals "
+            "where status = 'pending' and expires_at > now() and action = %s and params = %s "
+            "limit 1",
+            (action_name, Jsonb(params)),
+        )
+        return await cur.fetchone()
+
+
 async def propose(incident_id: UUID, action_name: str, raw_params: dict, rationale: str) -> dict:
     """Validate and record a proposal. Raises actions.NotAllowed / ValidationError if rejected."""
     action, params = actions.validate(action_name, raw_params)
+    existing = await _identical_pending(action.name, params.model_dump())
+    if existing:
+        raise AlreadyProposed(existing)
+
     decision = policy.decide(action, params)
     preview = await asyncio.to_thread(action.preview, params)
 
