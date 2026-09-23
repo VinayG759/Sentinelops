@@ -40,9 +40,15 @@ def running_pod(app_label: str) -> str:
 
 
 def exec_in_pod(pod: str, command: list[str]) -> str:
-    """Run a command in a pod's first container and return its combined output."""
+    """Run a command in a pod's first container and return its combined output.
+
+    Uses its own throwaway ApiClient: `stream()` swaps the client's request method for the
+    duration of the call, which corrupts a client shared across threads (overlapping calls
+    fail, and the shared client can be left stuck in exec mode).
+    """
+    private = k8s_config.new_client_from_config(config_file=str(get_settings().kubeconfig_file))
     return stream(
-        core().connect_get_namespaced_pod_exec,
+        client.CoreV1Api(private).connect_get_namespaced_pod_exec,
         pod,
         namespace(),
         command=command,
