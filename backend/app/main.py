@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from app.core import auth, db, health
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.features.audit.router import router as audit_router
 from app.features.incidents import detector
 from app.features.incidents.router import events_router
 from app.features.incidents.router import router as incidents_router
@@ -43,6 +44,7 @@ app = FastAPI(title="SentinelOps AI", version="0.1.0", lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(incidents_router)
+app.include_router(audit_router)
 app.include_router(events_router)
 app.include_router(investigation_router)
 app.include_router(remediation_router)

@@ -64,7 +64,6 @@ export function CommandPalette() {
             <CommandItem onSelect={go('/overview')}>Overview</CommandItem>
             <CommandItem onSelect={go('/incidents')}>Incidents</CommandItem>
             <CommandItem onSelect={go('/approvals')}>Approvals</CommandItem>
-            <CommandItem onSelect={go('/topology')}>Topology</CommandItem>
             <CommandItem onSelect={go('/audit')}>Audit</CommandItem>
             <CommandItem onSelect={go('/simulator')}>Simulator</CommandItem>
           </CommandGroup>

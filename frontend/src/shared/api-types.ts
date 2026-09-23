@@ -163,6 +163,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/audit/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify
+         * @description Recompute every event's hash. Green badge on the audit page; red names the broken row.
+         */
+        get: operations["verify_api_audit_verify_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["events_api_audit_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export
+         * @description The whole chain as JSON lines, so it can be verified outside SentinelOps.
+         */
+        get: operations["export_api_audit_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -370,6 +427,30 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AuditEvent */
+        AuditEvent: {
+            /** Id */
+            id: number;
+            /** Incident Id */
+            incident_id: string | null;
+            /** Type */
+            type: string;
+            /** Actor */
+            actor: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Prev Hash */
+            prev_hash: string;
+            /** Hash */
+            hash: string;
+        };
         /** AutonomyState */
         AutonomyState: {
             /** Paused */
@@ -382,6 +463,25 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /**
+         * ChainStatus
+         * @description The result of walking the whole hash chain, newest verification wins.
+         */
+        ChainStatus: {
+            /** Valid */
+            valid: boolean;
+            /** Checked */
+            checked: number;
+            /** First Broken Id */
+            first_broken_id: number | null;
+            /**
+             * Verified At
+             * Format: date-time
+             */
+            verified_at: string;
+            /** Took Ms */
+            took_ms: number;
         };
         /** Event */
         Event: {
@@ -910,6 +1010,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_api_audit_verify_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainStatus"];
+                };
+            };
+        };
+    };
+    events_api_audit_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Page backwards: events older than this id */
+                before_id?: number | null;
+                incident_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEvent"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_api_audit_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

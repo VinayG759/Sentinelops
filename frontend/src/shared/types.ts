@@ -11,4 +11,6 @@ export type Proposal = Schemas['Proposal']
 export type ProposalDetail = Schemas['ProposalDetail'] & {
   preview: { summary?: string; changes?: { field: string; from: unknown; to: unknown }[] }
 }
+export type AuditEvent = Schemas['AuditEvent']
+export type ChainStatus = Schemas['ChainStatus']
 export type Role = 'viewer' | 'responder' | 'approver' | 'admin'

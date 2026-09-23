@@ -49,11 +49,53 @@ Watch for: anything ugly, slow, confusing, or wrongly worded. Judges read this p
 - ⬜ **Kill switch** on → approving is refused with a clear reason
 - ⬜ A non-approver account cannot approve (create a second account to check)
 
-## Phase 4 — audit ⬜
+## Phase 4 — audit ⬜ (built 23 Sep)
 
-- ⬜ Audit page lists every event with actor and time
-- ⬜ "Verify chain" badge is green
-- ⬜ After I tamper with a row in the database, the badge turns red and names the row
+- ⬜ Audit page lists every event with category, actor, incident, time and hash
+- ⬜ **Verify chain** badge is green and names the number of events checked
+- ⬜ Click a row → payload, full actor, previous hash and this hash
+- ⬜ A row's **previous hash** equals the hash of the row below it (the chain, by eye)
+- ⬜ Category and actor filters narrow the table; counts look right
+- ⬜ **Older events** pages backwards, **Back to newest** returns
+- ⬜ **Export chain** downloads `sentinelops-audit.jsonl`
+- ⬜ The tamper demo below turns the badge red and names the row
+
+### The tamper demo
+
+The point: the record cannot be edited, and if someone with database access forces it,
+the next check says so. Run this in the Supabase SQL editor.
+
+**1. Prove it is append-only.** This fails, which is the first half of the demo:
+
+```sql
+update public.events set actor = 'somebody-else' where id = (select max(id) from public.events);
+-- ERROR: events are append-only
+```
+
+**2. Force it anyway**, as only a database owner could. Note the id you pick:
+
+```sql
+select id, payload from public.events order by id desc limit 5;  -- pick one, note its payload
+
+alter table public.events disable trigger events_no_update;
+update public.events set payload = '{"tampered": true}' where id = <ID>;
+alter table public.events enable trigger events_no_update;
+```
+
+**3. Press Verify chain.** The badge turns red, names event `<ID>`, and that row is
+highlighted in the table.
+
+**4. Put it back** (the hash is set on insert and is untouched by an update, so restoring
+the original payload restores the match):
+
+```sql
+alter table public.events disable trigger events_no_update;
+update public.events set payload = '<THE ORIGINAL PAYLOAD>'::jsonb where id = <ID>;
+alter table public.events enable trigger events_no_update;
+```
+
+Press **Verify chain** again — green. Do this run-through once before the event so the
+SQL is in your clipboard history and you are not typing it in front of judges.
 
 ## Cross-cutting, before the event ⬜
 

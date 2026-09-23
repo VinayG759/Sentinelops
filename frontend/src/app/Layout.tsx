@@ -3,7 +3,6 @@ import {
   FlaskConical,
   LayoutDashboard,
   LogOut,
-  Network,
   ScrollText,
   Shield,
   Siren,
@@ -35,7 +34,8 @@ export function Layout() {
     { to: '/overview', label: 'Overview', icon: LayoutDashboard },
     { to: '/incidents', label: 'Incidents', icon: Siren },
     { to: '/approvals', label: 'Approvals', icon: CheckSquare, badge: pending.data?.length },
-    { to: '/topology', label: 'Topology', icon: Network },
+    // Topology stays out of the nav until Phase 5 draws the blast-radius map; the
+    // /api/topology data already feeds the Overview cards.
     { to: '/audit', label: 'Audit', icon: ScrollText },
     { to: '/simulator', label: 'Simulator', icon: FlaskConical },
   ]
