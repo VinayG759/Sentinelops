@@ -99,6 +99,55 @@ async def incident_metrics(incident: dict, minutes: int) -> dict:
     }
 
 
+async def incident_stats(minutes: int) -> dict:
+    """Outcome numbers for incidents opened in the window. Every figure comes from the
+    incidents table and the event log; the resolving actor distinguishes a verified
+    automatic close ('system') from a human one ('user:<id>')."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            """
+            with inc as (
+                select id, opened_at, resolved_at from public.incidents
+                where opened_at >= now() - make_interval(mins => %(minutes)s)
+            ),
+            root_cause as (
+                select e.incident_id, min(e.created_at) as at
+                from public.events e join inc on inc.id = e.incident_id
+                where e.type = 'investigation.completed'
+                group by e.incident_id
+            ),
+            last_resolution as (
+                select distinct on (e.incident_id) e.incident_id, e.actor
+                from public.events e join inc on inc.id = e.incident_id
+                where e.type = 'incident.resolved'
+                order by e.incident_id, e.id desc
+            )
+            select
+                (select count(*) from inc) as opened,
+                (select count(*) from inc where resolved_at is not null) as resolved,
+                (select count(*) from last_resolution lr
+                   join inc on inc.id = lr.incident_id
+                  where lr.actor = 'system' and inc.resolved_at is not null)
+                    as closed_by_verified_fix,
+                (select percentile_cont(0.5) within group
+                        (order by extract(epoch from rc.at - inc.opened_at))
+                   from root_cause rc join inc on inc.id = rc.incident_id)
+                    as median_seconds_to_root_cause,
+                (select percentile_cont(0.5) within group
+                        (order by extract(epoch from resolved_at - opened_at))
+                   from inc where resolved_at is not null)
+                    as median_seconds_to_resolve,
+                (select count(*) from public.events
+                  where type = 'rollback.succeeded'
+                    and created_at >= now() - make_interval(mins => %(minutes)s))
+                    as rollbacks
+            """,
+            {"minutes": minutes},
+        )
+        row = await cur.fetchone()
+    return {"minutes": minutes, **row}
+
+
 # Allowed transitions: to-status -> the statuses it may be reached from.
 # "triggered" is reachable again after a failed fix is rolled back.
 _TRANSITIONS = {

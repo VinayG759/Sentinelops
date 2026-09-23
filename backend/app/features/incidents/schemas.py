@@ -28,3 +28,16 @@ class Event(BaseModel):
     payload: dict[str, Any]
     created_at: datetime
     hash: str
+
+
+class IncidentStats(BaseModel):
+    """Outcome numbers for incidents opened in a time window. None = nothing to measure yet."""
+
+    minutes: int
+    opened: int
+    resolved: int
+    # Closed by the system after a verified recovery, as opposed to a human clicking Resolve.
+    closed_by_verified_fix: int
+    median_seconds_to_root_cause: float | None
+    median_seconds_to_resolve: float | None
+    rollbacks: int

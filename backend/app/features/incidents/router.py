@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.auth import Role, User, current_user, require_role
 from app.features.incidents import service
-from app.features.incidents.schemas import Event, Incident, Status
+from app.features.incidents.schemas import Event, Incident, IncidentStats, Status
 
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 events_router = APIRouter(prefix="/api/events", tags=["incidents"])
@@ -19,6 +19,14 @@ async def recent_events(limit: int = 20, _: User = Depends(current_user)):
 @router.get("", response_model=list[Incident])
 async def list_incidents(status: Status | None = None, _: User = Depends(current_user)):
     return await service.list_incidents(status)
+
+
+@router.get("/stats", response_model=IncidentStats)
+async def incident_stats(
+    minutes: int = Query(60, ge=5, le=360), _: User = Depends(current_user)
+):
+    """How well the loop is working, for incidents opened in the last `minutes`."""
+    return await service.incident_stats(minutes)
 
 
 @router.get("/{incident_id}", response_model=Incident)

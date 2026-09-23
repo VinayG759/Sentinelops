@@ -10,6 +10,8 @@ import type { Incident, IncidentEvent } from '@/shared/types'
 import { Animated, Sparkline, StatusDot, Tag, type Tone } from '@/shared/ui/primitives'
 import { useLiveTable } from '@/shared/useLiveTable'
 import { useProposals } from '@/features/remediation/api'
+import { ServiceCharts } from './ServiceCharts'
+import { StatTiles } from './StatTiles'
 
 type ServiceHealth = {
   name: string
@@ -63,46 +65,76 @@ export function OverviewPage() {
   const allGood = worst === 'healthy'
 
   return (
-    <div className="space-y-5">
-      <SystemBanner status={worst} openCount={open.length} awaiting={pending.data?.length ?? 0} />
-
-      <section>
-        <SectionTitle>Services</SectionTitle>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-8">
+      <Section title="Is anything broken?" subtitle="Live health of every monitored service">
+        <SystemBanner status={worst} openCount={open.length} awaiting={pending.data?.length ?? 0} />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {(services.data ?? []).map((service, i) => (
             <ServiceCard key={service.name} service={service} index={i} />
           ))}
           {services.isLoading &&
             [0, 1, 2].map((i) => <div key={i} className="panel h-[132px] animate-pulse" />)}
         </div>
-      </section>
+      </Section>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[1.15fr_1fr]">
-        <section>
-          <SectionTitle>
-            Active incidents
-            <Link to="/incidents" className="text-signal hover:underline">
-              all incidents <ArrowUpRight className="inline size-3" />
-            </Link>
-          </SectionTitle>
-          <div className="panel mt-2 divide-y divide-hairline">
-            {open.length === 0 ? (
-              <Empty
-                title={allGood ? 'All systems nominal' : 'No open incidents'}
-                body="The detector checks every service every 15 seconds."
-              />
-            ) : (
-              open.map((incident) => <IncidentRow key={incident.id} incident={incident} />)
-            )}
+      <Section
+        title="How are services behaving?"
+        subtitle="Straight from Prometheus, on one time axis"
+      >
+        <ServiceCharts incidents={incidents.data ?? []} />
+      </Section>
+
+      <Section title="What is happening now?" subtitle="Open incidents and every agent and human action">
+        <div className="grid items-start gap-5 lg:grid-cols-[1.15fr_1fr]">
+          <div>
+            <SubTitle>
+              Active incidents
+              <Link to="/incidents" className="text-signal hover:underline">
+                all incidents <ArrowUpRight className="inline size-3" />
+              </Link>
+            </SubTitle>
+            <div className="panel mt-2 divide-y divide-hairline">
+              {open.length === 0 ? (
+                <Empty
+                  title={allGood ? 'All systems nominal' : 'No open incidents'}
+                  body="The detector checks every service every 15 seconds."
+                />
+              ) : (
+                open.map((incident) => <IncidentRow key={incident.id} incident={incident} />)
+              )}
+            </div>
           </div>
-        </section>
+          <div>
+            <SubTitle>Agent activity</SubTitle>
+            <ActivityFeed />
+          </div>
+        </div>
+      </Section>
 
-        <section>
-          <SectionTitle>Agent activity</SectionTitle>
-          <ActivityFeed />
-        </section>
-      </div>
+      <Section title="How well is it working?" subtitle="Outcomes for incidents opened in the selected range">
+        <StatTiles />
+      </Section>
     </div>
+  )
+}
+
+function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string
+  subtitle: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
+        <p className="text-[11.5px] text-muted-foreground">{subtitle}</p>
+      </div>
+      {children}
+    </section>
   )
 }
 
@@ -308,7 +340,7 @@ function ActivityFeed() {
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SubTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground">
       {children}
