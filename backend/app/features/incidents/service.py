@@ -39,11 +39,27 @@ async def open_incident(
 
 
 async def list_incidents(status: str | None) -> list[dict]:
+    """Newest first, each with the agent's latest conclusion, or why it didn't reach one."""
+    columns = ", ".join(f"i.{c.strip()}" for c in _COLUMNS.split(","))
     async with get_pool().connection() as conn:
         cur = await conn.execute(
-            f"select {_COLUMNS} from public.incidents "
-            "where %(status)s::text is null or status = %(status)s "
-            "order by opened_at desc limit 200",
+            f"""select {columns},
+                       finding.payload->>'hypothesis' as root_cause,
+                       finding.payload->>'confidence' as root_cause_confidence,
+                       failure.payload->>'reason' as investigation_failed_reason
+                from public.incidents i
+                left join lateral (
+                    select e.payload from public.events e
+                    where e.incident_id = i.id and e.type = 'investigation.completed'
+                    order by e.id desc limit 1
+                ) finding on true
+                left join lateral (
+                    select e.payload from public.events e
+                    where e.incident_id = i.id and e.type = 'investigation.failed'
+                    order by e.id desc limit 1
+                ) failure on true
+                where %(status)s::text is null or i.status = %(status)s
+                order by i.opened_at desc limit 200""",
             {"status": status},
         )
         return await cur.fetchall()

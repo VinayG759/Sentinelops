@@ -18,6 +18,10 @@ class Incident(BaseModel):
     fs_ticket_id: int | None
     opened_at: datetime
     resolved_at: datetime | None
+    # The agent's latest conclusion; only filled in by the list endpoint.
+    root_cause: str | None = None
+    root_cause_confidence: Literal["low", "medium", "high"] | None = None
+    investigation_failed_reason: str | None = None
 
 
 class Event(BaseModel):

@@ -15,29 +15,6 @@ export type IncidentMetrics = {
   }
 }
 
-export type IncidentStatus = Incident['status']
-
-export function useIncidents(status: IncidentStatus) {
-  const queryKey = ['incidents', status]
-  useLiveTable('incidents', ['incidents'])
-  return useQuery({
-    queryKey,
-    queryFn: () => api<Incident[]>(`/api/incidents?status=${status}`),
-  })
-}
-
-export function useIncidentCounts() {
-  return useQuery({
-    queryKey: ['incidents', 'all'],
-    queryFn: () => api<Incident[]>('/api/incidents'),
-    select: (rows) => ({
-      triggered: rows.filter((r) => r.status === 'triggered').length,
-      acknowledged: rows.filter((r) => r.status === 'acknowledged').length,
-      resolved: rows.filter((r) => r.status === 'resolved').length,
-    }),
-  })
-}
-
 export function useIncident(id: string) {
   useLiveTable('incidents', ['incidents'])
   return useQuery({ queryKey: ['incident', id], queryFn: () => api<Incident>(`/api/incidents/${id}`) })

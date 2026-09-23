@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Incident Stats
+         * @description How well the loop is working, for incidents opened in the last `minutes`.
+         */
+        get: operations["incident_stats_api_incidents_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incidents/{incident_id}": {
         parameters: {
             query?: never;
@@ -137,6 +157,26 @@ export interface paths {
         put?: never;
         /** Resolve */
         post: operations["resolve_api_incidents__incident_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Events
+         * @description The newest events across all incidents — the activity feed on the overview.
+         */
+        get: operations["recent_events_api_events_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -306,6 +346,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/topology/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * All Service Metrics
+         * @description Golden signals for every service with application metrics, on one shared time axis.
+         */
+        get: operations["all_service_metrics_api_topology_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -382,6 +442,32 @@ export interface components {
             opened_at: string;
             /** Resolved At */
             resolved_at: string | null;
+            /** Root Cause */
+            root_cause?: string | null;
+            /** Root Cause Confidence */
+            root_cause_confidence?: ("low" | "medium" | "high") | null;
+            /** Investigation Failed Reason */
+            investigation_failed_reason?: string | null;
+        };
+        /**
+         * IncidentStats
+         * @description Outcome numbers for incidents opened in a time window. None = nothing to measure yet.
+         */
+        IncidentStats: {
+            /** Minutes */
+            minutes: number;
+            /** Opened */
+            opened: number;
+            /** Resolved */
+            resolved: number;
+            /** Closed By Verified Fix */
+            closed_by_verified_fix: number;
+            /** Median Seconds To Root Cause */
+            median_seconds_to_root_cause: number | null;
+            /** Median Seconds To Resolve */
+            median_seconds_to_resolve: number | null;
+            /** Rollbacks */
+            rollbacks: number;
         };
         /** Proposal */
         Proposal: {
@@ -525,6 +611,24 @@ export interface components {
              */
             spark: number[];
         };
+        /** ServiceMetrics */
+        ServiceMetrics: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Step */
+            step: number;
+            /** Services */
+            services: {
+                [key: string]: {
+                    [key: string]: [
+                        number,
+                        number
+                    ][];
+                };
+            };
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -609,6 +713,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Incident"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    incident_stats_api_incidents_stats_get: {
+        parameters: {
+            query?: {
+                minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentStats"];
                 };
             };
             /** @description Validation Error */
@@ -766,6 +901,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Incident"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_events_api_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"][];
                 };
             };
             /** @description Validation Error */
@@ -1035,7 +1201,10 @@ export interface operations {
     };
     topology_api_topology_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Sparkline window */
+                minutes?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1049,6 +1218,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceHealth"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    all_service_metrics_api_topology_metrics_get: {
+        parameters: {
+            query?: {
+                minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceMetrics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
