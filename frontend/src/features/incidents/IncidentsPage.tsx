@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { api } from '@/shared/api'
 import { serviceColor } from '@/shared/serviceColors'
 import { absoluteTime, relativeTime } from '@/shared/time'
-import { useTimeRange } from '@/shared/timeRange'
+import { RANGES, useTimeRange } from '@/shared/timeRange'
 import type { Incident } from '@/shared/types'
 import { StatusDot, Tag, type Tone } from '@/shared/ui/primitives'
 import { useLiveTable } from '@/shared/useLiveTable'
@@ -42,7 +42,7 @@ const initialFilters = (): Filters => ({
  * Open incidents are always listed; resolved ones follow the global time range.
  */
 export function IncidentsPage() {
-  const { minutes, range } = useTimeRange()
+  const { minutes, range, setRange } = useTimeRange()
   useLiveTable('incidents', ['incidents'])
   const incidents = useQuery({
     queryKey: ['incidents', 'table'],
@@ -59,7 +59,13 @@ export function IncidentsPage() {
       ),
     [incidents.data, minutes, now],
   )
-  const services = useMemo(() => [...new Set(scoped.map((i) => i.service))].sort(), [scoped])
+  // Every service that has ever had an incident, so the rail doesn't empty out with the range.
+  const services = useMemo(
+    () => [...new Set((incidents.data ?? []).map((i) => i.service))].sort(),
+    [incidents.data],
+  )
+  const olderResolved = (incidents.data?.length ?? 0) - scoped.length
+  const widerRange = RANGES.find((r) => r.minutes > minutes)
   const visible = scoped.filter(
     (i) =>
       filters.status.has(i.status) &&
@@ -119,7 +125,9 @@ export function IncidentsPage() {
             ))}
           </Facet>
           <Facet title="Service">
-            {services.length === 0 && <p className="text-[11.5px] text-muted-foreground">No services yet</p>}
+            {services.length === 0 && (
+              <p className="text-[11.5px] text-muted-foreground">No incidents recorded yet</p>
+            )}
             {services.map((name) => (
               <Check
                 key={name}
@@ -168,6 +176,26 @@ export function IncidentsPage() {
                 </tbody>
               </table>
             </div>
+          )}
+          {olderResolved > 0 && (
+            <p className="mt-2 text-[11.5px] text-muted-foreground">
+              {olderResolved} resolved incident{olderResolved > 1 ? 's are' : ' is'} older than{' '}
+              {range.label}
+              {widerRange && (
+                <>
+                  {' — '}
+                  <button
+                    onClick={() => {
+                      setRange(widerRange.key)
+                      setFilters((f) => ({ ...f, status: new Set([...f.status, 'resolved']) }))
+                    }}
+                    className="text-signal underline-offset-4 hover:underline"
+                  >
+                    show last {widerRange.label}
+                  </button>
+                </>
+              )}
+            </p>
           )}
           {visible.length > 0 && (
             <p className="mt-2 text-[11px] text-muted-foreground">
