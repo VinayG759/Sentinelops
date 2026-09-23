@@ -17,6 +17,7 @@ import { CommandPalette } from '@/app/CommandPalette'
 import { useProposals } from '@/features/remediation/api'
 import { KillSwitch } from '@/features/remediation/KillSwitch'
 import { HealthIndicator } from '@/features/system/HealthIndicator'
+import { TimeRangePicker } from '@/features/system/TimeRangePicker'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/shared/supabase'
 import { Tag } from '@/shared/ui/primitives'
@@ -109,6 +110,7 @@ export function Layout() {
             ⌘K
           </kbd>
           <div className="ml-auto flex items-center gap-4">
+            <TimeRangePicker />
             <KillSwitch />
             <HealthIndicator />
           </div>

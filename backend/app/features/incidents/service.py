@@ -1,10 +1,9 @@
 """Incident lifecycle. Every state change is written together with its event."""
 
-import asyncio
 import time
 from uuid import UUID
 
-from app.core import events, prometheus
+from app.core import events, service_metrics
 from app.core.db import get_pool
 
 _COLUMNS = "id, service, signal, severity, status, title, fs_ticket_id, opened_at, resolved_at"
@@ -90,31 +89,13 @@ async def incident_metrics(incident: dict, minutes: int) -> dict:
         return {"series": {}, "opened_at": incident["opened_at"]}
 
     end = time.time()
-    start = end - minutes * 60
-    step = max(10, (minutes * 60) // 120)
-    window = "1m"
-    error_ratio, request_rate, p95 = await asyncio.gather(
-        prometheus.query_range(
-            f"sum(rate({prefix}_errors_total[{window}])) / "
-            f"sum(rate({prefix}_requests_total[{window}]))",
-            start, end, step,
-        ),
-        prometheus.query_range(f"sum(rate({prefix}_requests_total[{window}]))", start, end, step),
-        prometheus.query_range(
-            f"histogram_quantile(0.95, sum(rate({prefix}_request_duration_ms_bucket[{window}]))"
-            " by (le))",
-            start, end, step,
-        ),
-    )
     return {
         "service": incident["service"],
         "opened_at": incident["opened_at"],
         "resolved_at": incident["resolved_at"],
-        "series": {
-            "error_ratio": error_ratio,
-            "requests_per_second": request_rate,
-            "p95_latency_ms": p95,
-        },
+        "series": await service_metrics.series(
+            prefix, end - minutes * 60, end, service_metrics.step_for(minutes)
+        ),
     }
 
 

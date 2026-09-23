@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { api } from '@/shared/api'
 import { relativeTime } from '@/shared/time'
+import { useTimeRange } from '@/shared/timeRange'
 import type { Incident, IncidentEvent } from '@/shared/types'
 import { Animated, Sparkline, StatusDot, Tag, type Tone } from '@/shared/ui/primitives'
 import { useLiveTable } from '@/shared/useLiveTable'
@@ -31,10 +32,12 @@ const statusTone: Record<ServiceHealth['status'], Tone> = {
 }
 
 export function OverviewPage() {
+  const { minutes, refetchEvery } = useTimeRange()
   const services = useQuery({
-    queryKey: ['topology'],
-    queryFn: () => api<ServiceHealth[]>('/api/topology'),
-    refetchInterval: 10_000,
+    queryKey: ['topology', minutes],
+    queryFn: () => api<ServiceHealth[]>(`/api/topology?minutes=${minutes}`),
+    refetchInterval: refetchEvery(10_000),
+    placeholderData: (previous) => previous,
   })
   useLiveTable('incidents', ['incidents'])
   const incidents = useQuery({

@@ -39,6 +39,8 @@
     --color-chart-3: var(--chart-3);
     --color-chart-2: var(--chart-2);
     --color-chart-1: var(--chart-1);
+    --color-series-1: var(--series-1);
+    --color-series-2: var(--series-2);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -107,6 +109,12 @@
     --chart-3: oklch(0.78 0.15 75);
     --chart-4: oklch(0.65 0.20 24);
     --chart-5: oklch(0.65 0.12 300);
+
+    /* One fixed colour per monitored service, on every chart. Validated as a pair for
+       colour-blind separation on the panel surface, and kept clear of the status colours
+       (red / amber / green) and the cyan accent, so a series never reads as a state. */
+    --series-1: #9085e9;                       /* violet  — order-service   */
+    --series-2: #008300;                       /* green   — payment-service */
 
     --sidebar: oklch(0.145 0.008 265);
     --sidebar-foreground: oklch(0.90 0.004 265);
