@@ -31,10 +31,10 @@
 |---|---|---|---|
 | W1 | Tue 22 Sep | done | Phases 0–1 |
 | W2 | Tue 22 night → Wed 23 morning | done | Phases 2–3 (verified end to end through the UI) |
-| W3 | Wed 23 Sep, rest of day | ~8 | Freshservice spike (waiting on API access), **submission prep** (README draft done), manual checklist |
-| W4 | Thu 24 Sep, day and night | ~12 | UI tweaks, tunnel test, full demo runs, backup video; **freeze and tag `v0-pre-event` at the end of the night** |
+| W3 | Wed 23 Sep, rest of day | ~8 | **Phase 4 (audit) done**, README draft done, mentor call done. Freshservice still waiting on API access |
+| W4 | Thu 24 Sep, day and night | ~12 | UI tweaks, full demo runs, backup video; **freeze and tag `v0-pre-event` at the end of the night** |
 | — | Wed 23 evening · Thu 24 evening | — | **Craft the presentation** and review the business case (Wed); **practise it** (Thu evening) |
-| E1 | **Fri 25 Sep** (Day 1), 12:45–20:00 | ~5 net (lunch 13:15–14:15, mentor hours 15:40–16:15 sit inside this) | Phase F (Freshservice), Phase 4 (audit) |
+| E1 | **Fri 25 Sep** (Day 1), 12:45–20:00 | ~5 net (lunch 13:15–14:15, mentor hours 15:40–16:15 sit inside this) | Phase F (Freshservice) — now the whole day, since Phase 4 landed early |
 | — | Fri 20:00 → Sat 08:00 | — | **Venue closes. Not an overnight hackathon** — everyone leaves at 20:00 |
 | E2 | **Sat 26 Sep** (Day 2), 08:00–10:45 | ~2.5 | Finish, README, **submission closes 10:45 sharp** |
 | — | Sat 26 Sep, 10:45–15:00 | — | Judging round 1, shortlisting, finals on the main stage; closing 16:20 |
@@ -42,7 +42,7 @@
 > Weekdays corrected 23 Sep: the handbook gives dates only, and 25–26 Sep 2026 fall on
 > Friday–Saturday. Earlier versions of this plan said Thursday–Friday.
 
-**Pre-event cut line:** Phase 3 is done (23 Sep). Before the freeze, in priority order:
+**Pre-event cut line:** Phases 3 and 4 are done (23 Sep). Before the freeze, in priority order:
 submission prep → manual checklist → full demo runs + backup video → UI tweaks.
 
 ---
@@ -51,8 +51,9 @@ submission prep → manual checklist → full demo runs + backup video → UI tw
 
 | # | Question | Default until answered |
 |---|---|---|
-| Q1 | What counts as a "demo URL": a link judges open during judging, or one that works after the event? | Cloudflare quick tunnel from the laptop during judging (§2.3) |
-| Q2 | Can Freshservice change **approvals** be requested and read through the API on the trial plan? The cookbook lists `approvals`, `changes` and `problems` under Freshservice REST v2, so probably yes — confirm with one call in the Phase 0 spike | If readable: approve inside Freshservice, SentinelOps polls and executes. If not: approve in SentinelOps and mirror the decision onto the change record (§6, Phase F) |
+| Q1 | ~~What counts as a "demo URL"?~~ **Answered 23 Sep (Himanshu):** demoing from localhost is fine. The tunnel is dropped; the backup video matters more, since judges cannot revisit a link |
+| Q2 | ~~Can change **approvals** be read through the API?~~ **Answered 23 Sep:** yes — `GET /api/v2/changes/{change_id}/approvals` is in REST v2, and the workspace has Change Management. Approval happens inside Freshservice and SentinelOps polls for it |
+| Q5 | **New, 23 Sep:** the hosted **MCP server** (`https://<subdomain>.freshservice.com/mcp`, GA 10 Sep 2026) exposes tickets, solution articles and assets — but **not changes, approvals or problems**. Confirmed from the Freshservice MCP docs | Use MCP for tickets and knowledge base, REST v2 for changes/approvals/problems. One API key authenticates both |
 | Q3 | Freshservice API rate limit on the trial account | Poll no faster than every 15s; cache reads |
 | Q4 | Is pre-built demo infrastructure (the monitored services) acceptable, given judging weighs event-built work? | Yes. It's the test subject, not the product. Disclose it in the README |
 
@@ -91,7 +92,7 @@ restores a healthy baseline; the same fault becomes simulator scenario `port_mis
  │        │                     ┌──────────────────────┐                │
  │        │                     │ Frontend (React/Vite)│                │
  │        │                     └──────────┬───────────┘                │
- │        │           cloudflared tunnel ──┘ → public demo URL          │
+ │        │                                                              │
  └────────┼────────────────────────────────────────────────────────────┘
           │ SQL + Realtime + Auth
    ┌──────▼──────────────┐
@@ -120,14 +121,20 @@ Not used: Lambda/Amplify (a continuous loop and long agent runs don't fit; the c
 reach the laptop cluster), Redis, Clerk (a second identity system), Firebase, DynamoDB, S3,
 and our own vector knowledge base (replaced by Freshservice solution articles).
 
-### 2.3 Demo URL (pending Q1)
+### 2.3 Demo URL — settled 23 Sep
 
-- **Default:** everything runs on the laptop. `cloudflared tunnel --url http://localhost:5173`
-  (a free "quick tunnel", no account needed) gives a public `https://…trycloudflare.com` link
-  while the laptop is on. The frontend proxies `/api` to the backend, so one URL covers both.
-- **If a permanent link is required:** frontend on Vercel pointing at a named Cloudflare
-  tunnel for the backend. This only works while the laptop runs; a fully cloud-hosted variant
-  would need a cloud cluster, which is out of scope.
+Himanshu confirmed that **demoing from localhost is acceptable**, so no tunnel and no
+deployment. Everything runs on the laptop, which is where the cluster is anyway.
+
+Two consequences:
+
+- The **backup video is the only fallback**. Judges cannot open a link later, so if the laptop
+  misbehaves during judging there is nothing else. Record it before the freeze.
+- Whatever the submission form wants in its "demo URL" field is the repo or the video — worth
+  confirming on the day rather than guessing.
+
+A tunnel (`cloudflared tunnel --url http://localhost:5173`) remains the fallback if the rule
+changes, but it is no longer planned work.
 
 ---
 
@@ -393,9 +400,25 @@ viewer); kill switch; execute → rollback restores the spec (cluster test).
 | `incident.resolved` | Resolve the ticket; create a **Problem** record with the AI-drafted postmortem | → |
 | Runbooks | Agent tool `search_solution_articles(query)` reads Freshservice solution articles | ← |
 
-**Build:** `integrations/freshservice/client.py` (typed httpx client, retries with backoff,
-rate-limit aware); `sync.py` (event subscribers plus approval poller); an integration status
+**Two surfaces, split by what each one covers** (decided 23 Sep, see Q5):
+
+| Path | Carries | Why |
+|---|---|---|
+| Hosted **MCP server** | tickets, notes, solution-article search | Drops into the agent's existing tool loop — no client to write. Freshworks' own surface, which is worth saying out loud |
+| **REST v2** client | changes, change approvals, problems | MCP does not expose change management, and this is where the safety story lives |
+
+**Build:** `integrations/freshservice/client.py` (typed httpx client for changes, approvals and
+problems; retries with backoff, rate-limit aware); MCP tools registered alongside the agent's
+existing nine; `sync.py` (event subscribers plus the approval poller); an integration status
 page; links from the incident page to the ticket and change.
+
+**Credentials:** one API key covers both. `FRESHSERVICE_DOMAIN` + `FRESHSERVICE_API_KEY` in
+`.env`; the MCP endpoint is derived from the domain. Workspace: `freshworks065.freshservice.com`,
+provisioned 23 Sep. **Blocked:** the agent role has API access disabled pending an admin change.
+
+**Rate limits (MCP):** Growth 25/min and 1,200 actions/year, Pro 50/min and 6,000, Enterprise
+100/min and 12,000. Irrelevant at demo volume; a real reason the REST path carries the
+high-frequency polling.
 
 **Acceptance:** the full loop creates a ticket, a note, a change, an approval (via
 Freshservice if Q2 = yes), execution notes, a resolved ticket and a problem, all visible in the
@@ -410,7 +433,7 @@ integration page shows the last 20 calls.
 
 ---
 
-### Phase 4 — Audit trail  *(E1 → E2, ~2 h)*
+### Phase 4 — Audit trail  *(built 23 Sep, before the event — ~2 h)*
 
 `GET /api/audit/verify` walks the chain → `{valid, checked, first_broken_id}`. The audit page
 has a filterable table, a **Verify chain** badge, and a JSON-lines export.
@@ -435,8 +458,8 @@ documentation, not product, so drafting it early takes no credit from event work
 
 - **Prep (W3–W4, before the freeze):** README draft (problem, what it does, architecture
   diagram, how to run, **built before / built at the event** with `v0-pre-event` as the
-  boundary, screenshots of Phases 0–3), project description, business case linked, demo URL
-  tested from a phone on mobile data.
+  boundary, screenshots of Phases 0–4), project description, business case linked. No tunnel:
+  Q1 is answered, the demo runs from localhost, so the **backup video is the only fallback**.
 - **Finish (E2):** add the Freshservice and audit sections plus their screenshots, re-test the
   demo URL, final push before **10:45**.
 

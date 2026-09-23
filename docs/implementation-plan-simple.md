@@ -33,7 +33,7 @@ and through the customer's own approval process.
 |---|---|
 | The handbook says Freshworks integration is required for Tracks 1 and 2, **not** for Track 3 — and we're Track 3. The spoken briefing said it was required for everyone. | **We're doing it anyway** (decided 23 Sep). "The AI works through the approval process you already use" is a strong story, and it covers us if the briefing is right |
 | Judges mostly score **what's built at the event** | Build the engine now; build the Freshservice part, the record book and the polish at the event. The README says honestly what was built when |
-| Need a **public GitHub repo + demo link** by **26 Sep, 10:45** | Write the README from day one; make a public link with a free tunnel (see below) |
+| Need a **public GitHub repo + demo link** by **26 Sep, 10:45** | Write the README from day one. **Confirmed 23 Sep: demoing from the laptop is fine**, so no tunnel — which makes the backup video the only safety net |
 | Need a short **business case** (1–2 hours, no more) | Your friends can own this; you review it |
 | Anthropic credits provided | Use Claude as the AI |
 | Voice, AWS and Indian-language tracks are optional | Ignore them unless everything else is done |
@@ -55,12 +55,20 @@ reinventing them:
 | resolves the incident | the ticket closes, and a **Problem** record holds the "what happened" report |
 | needs a how-to guide | it searches Freshservice's **knowledge articles** |
 
-**One thing we don't know yet:** whether a program can *read approvals* out of Freshservice.
-If it can, the approver never opens SentinelOps — they approve in Freshservice, and our system
-notices and runs the fix. If it can't, the approval happens in SentinelOps and we copy the
-decision into the Freshservice record so the paperwork is still complete. The Freshworks
-cookbook lists approvals in its API, so the first version is likely. We'll confirm with one
-test call, not by asking anyone.
+**Answered on 23 September: yes, a program can read approvals out of Freshservice.** So we get
+the good version: the approver never opens SentinelOps. They approve the change in Freshservice,
+the way they approve every other change, and our system notices within 15 seconds and runs the
+fix. Their process is what gives the AI permission — not a button we built.
+
+**Two doors into Freshservice, and we use both.** Freshworks has a new thing called an *MCP
+server* — a ready-made set of tools an AI can call directly, so we don't have to write the
+plumbing. It handles tickets, notes and searching knowledge articles. But it doesn't cover
+*changes and approvals*, which is exactly where our safety story lives. So changes and approvals
+go through the ordinary web API instead. One password (the API key) opens both doors.
+
+**Where we're stuck right now:** we have the workspace (`freshworks065.freshservice.com`) and
+Change Management is switched on, but the API key on Vinay's account is disabled and needs an
+admin to turn it on. Asked for on 23 Sep.
 
 **Your mentors** (from the assignment sheet): Himanshu Singhal (product,
 himanshu.singhal@freshworks.com) and Mohideen Ibrahim (engineering,
@@ -111,12 +119,12 @@ same mistake into a **"break it" button**, so SentinelOps can find and fix it li
 |---|---|
 | **Tue 22** | Phases 0–1: set up, fix the pretend company, notice problems live ✅ |
 | **Tue 22 night → Wed 23 morning** | Phases 2–3: the AI detective and the safety system ✅ |
-| **Wed 23, rest of day** | Test Freshservice (waiting for API access), **draft the README** ✅, click through the test checklist |
-| **Thu 24, day and night** | UI tweaks, test the demo link, full practice runs, backup video. **Freeze at the end of the night** |
+| **Wed 23, rest of day** | **The record book (Phase 4) is built** ✅, README drafted ✅, mentor call done ✅. Freshservice still waiting on the API key |
+| **Thu 24, day and night** | UI tweaks, full practice runs, backup video. **Freeze at the end of the night** |
 | **Wed 23 evening · Thu 24 evening** | **Write the presentation** and review the business case (Wed); **practise it** (Thu evening) |
-| **Fri 25, 12:45–20:00 (event, day 1)** | Phase F: Freshservice. Then Phase 4: the record book. Lunch and mentor hours sit inside this, so it's about 5 real hours |
+| **Fri 25, 12:45–20:00 (event, day 1)** | Phase F: Freshservice, with the whole day for it now that the record book is finished early. Lunch and mentor hours sit inside this, so about 5 real hours |
 | **Fri 20:00 → Sat 08:00** | **Venue closes — it's not an overnight hackathon.** Everyone leaves |
-| **Sat 26, 08:00–10:45 (day 2)** | Finish the record book, add the Freshservice part to the README, **submission closes at 10:45 sharp** |
+| **Sat 26, 08:00–10:45 (day 2)** | Finish off, add the Freshservice part to the README, **submission closes at 10:45 sharp** |
 | **Sat 26, 10:45 onwards** | Judging, shortlist, finals on the main stage, closing at 16:20 |
 
 > The handbook only gives dates. 25–26 September 2026 are a **Friday and Saturday** —
