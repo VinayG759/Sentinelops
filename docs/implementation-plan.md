@@ -17,7 +17,7 @@
 
 | Constraint | Consequence for this plan |
 |---|---|
-| **Freshservice or Freshdesk integration is mandatory** | Freshservice (ITSM) is the natural fit. The integration is its own phase (Phase F), and a de-risking spike happens in Phase 0 |
+| Freshworks integration is **mandatory for Tracks 1 and 2, not for Track 3** (participant handbook, §3). The pre-event briefing said mandatory for all; the handbook is the written rule. **We are Track 3 and are doing it anyway** — decided 23 Sep — because "the AI works through your existing change process" is a differentiator, and it covers us if the briefing wins | Freshservice (ITSM) is the natural fit. Its own phase (Phase F), with a de-risking spike in Phase 0 |
 | Judging mainly weighs **what is built during the hackathon** | Pre-event: platform and core loop. At the event: Freshservice integration, audit, blast radius, polish. The README states what was built where, and the git history shows it |
 | **Public GitHub repo + demo URL** due **26 Sep, 10:45** | Clear README from day one; demo URL approach in §2.3 |
 | Working prototype + **business case / elevator pitch** (1–2 h max) | Separate deliverable `docs/business-case.md`, owned by teammates, reviewed by Vinay |
@@ -34,9 +34,10 @@
 | W3 | Tue 23 Sep, night | 4 | Phase 3 (first half) |
 | W4 | Wed 24 Sep, until midday | 4 | Phase 3 done; freeze pre-event scope |
 | — | Wed 24 Sep, afternoon | — | Business case review, **presentation practice** |
-| E1 | Thu 25 Sep, 12:45–20:00 | 7 | Phase F (Freshservice), Phase 4 (audit) |
-| E2 | Fri 26 Sep, morning | 2–3 | Phase 5 (depth, if time), README, **submit by 10:45** |
-| — | Fri 26 Sep, 13:00–15:15 | — | Final evaluations |
+| E1 | Thu 25 Sep, 12:45–20:00 | ~5 net (lunch 13:15–14:15, mentor hours 15:40–16:15 sit inside this) | Phase F (Freshservice), Phase 4 (audit) |
+| — | Thu 20:00 → Fri 08:00 | — | **Venue closes. Not an overnight hackathon** — everyone leaves at 20:00 |
+| E2 | Fri 26 Sep, 08:00–10:45 | ~2.5 | Finish, README, **submission closes 10:45 sharp** |
+| — | Fri 26 Sep, 10:45–15:00 | — | Judging round 1, shortlisting, finals on the main stage; closing 16:20 |
 
 **Pre-event cut line:** Phase 3 working end to end by midday 24 Sep. If behind, drop Phase 3's
 auto-rollback to "manual rollback button" rather than slipping into presentation practice.
@@ -48,9 +49,17 @@ auto-rollback to "manual rollback button" rather than slipping into presentation
 | # | Question | Default until answered |
 |---|---|---|
 | Q1 | What counts as a "demo URL": a link judges open during judging, or one that works after the event? | Cloudflare quick tunnel from the laptop during judging (§2.3) |
-| Q2 | Can Freshservice change **approvals** be requested and read through the API on the trial plan? | Use the change record's status/approval field if readable; otherwise the approval happens in SentinelOps and is mirrored to the change record (§6, Phase F) |
+| Q2 | Can Freshservice change **approvals** be requested and read through the API on the trial plan? The cookbook lists `approvals`, `changes` and `problems` under Freshservice REST v2, so probably yes — confirm with one call in the Phase 0 spike | If readable: approve inside Freshservice, SentinelOps polls and executes. If not: approve in SentinelOps and mirror the decision onto the change record (§6, Phase F) |
 | Q3 | Freshservice API rate limit on the trial account | Poll no faster than every 15s; cache reads |
 | Q4 | Is pre-built demo infrastructure (the monitored services) acceptable, given judging weighs event-built work? | Yes. It's the test subject, not the product. Disclose it in the README |
+
+**Mentors assigned to SentinelOps AI:** Himanshu Singhal (PM, himanshu.singhal@freshworks.com),
+Mohideen Ibrahim (Engineering, mohideen.ibrahim@freshworks.com).
+
+**Other rules from the handbook:** build the same idea that was shortlisted (no pivoting);
+judging puts majority weight on work done during the hackathon; Anthropic credits are $100
+per participant valid 7 days from grant. Partner names: **Vobiz** (voice telephony),
+**Wispr Flow** (voice prompting).
 
 **Known live state (verified 2026-09-22):** both demo services fail 100% of requests. The
 cause is confirmed: the old commit `43bbe24` (11 Sep) changed the `postgres` Service port to 5433
@@ -366,7 +375,7 @@ viewer); kill switch; execute → rollback restores the spec (cluster test).
 
 ---
 
-### Phase F — Freshservice integration (mandatory)  *(E1, ~4 h)*
+### Phase F — Freshservice integration  *(E1, ~4 h — decided 23 Sep, doing it regardless of Track 3 rules)*
 
 **Goal:** Freshservice is the system of record that IT teams already use. SentinelOps works
 *through* it, not beside it.

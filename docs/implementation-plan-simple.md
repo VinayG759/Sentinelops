@@ -31,7 +31,7 @@ and through the customer's own approval process.
 
 | They said | So we… |
 |---|---|
-| Freshservice or Freshdesk integration is **required** | Use **Freshservice**, which is built for IT teams. It gets its own phase at the event |
+| The handbook says Freshworks integration is required for Tracks 1 and 2, **not** for Track 3 — and we're Track 3. The spoken briefing said it was required for everyone. | **We're doing it anyway** (decided 23 Sep). "The AI works through the approval process you already use" is a strong story, and it covers us if the briefing is right |
 | Judges mostly score **what's built at the event** | Build the engine now; build the Freshservice part, the record book and the polish at the event. The README says honestly what was built when |
 | Need a **public GitHub repo + demo link** by **26 Sep, 10:45** | Write the README from day one; make a public link with a free tunnel (see below) |
 | Need a short **business case** (1–2 hours, no more) | Your friends can own this; you review it |
@@ -55,9 +55,16 @@ reinventing them:
 | resolves the incident | the ticket closes, and a **Problem** record holds the "what happened" report |
 | needs a how-to guide | it searches Freshservice's **knowledge articles** |
 
-**One thing we don't know yet:** whether Freshservice lets a program *read approvals* through
-its API. If not, there's a backup plan: approve in SentinelOps and copy the decision into
-Freshservice. We'll test this on day 1 (tonight) and ask a mentor.
+**One thing we don't know yet:** whether a program can *read approvals* out of Freshservice.
+If it can, the approver never opens SentinelOps — they approve in Freshservice, and our system
+notices and runs the fix. If it can't, the approval happens in SentinelOps and we copy the
+decision into the Freshservice record so the paperwork is still complete. The Freshworks
+cookbook lists approvals in its API, so the first version is likely. We'll confirm with one
+test call, not by asking anyone.
+
+**Your mentors** (from the assignment sheet): Himanshu Singhal (product,
+himanshu.singhal@freshworks.com) and Mohideen Ibrahim (engineering,
+mohideen.ibrahim@freshworks.com).
 
 ---
 
@@ -106,9 +113,10 @@ same mistake into a **"break it" button**, so SentinelOps can find and fix it li
 | **Tue 23, day** | Phases 1–2: notice problems live, and the AI detective |
 | **Tue 23, night → Wed 24, midday** | Phase 3: the safety system. **Freeze here** |
 | **Wed 24, afternoon** | Review the business case, **practise the presentation** |
-| **Thu 25, 12:45–20:00 (event)** | Phase F: Freshservice. Then Phase 4: the record book |
-| **Fri 26, morning** | Extras if there's time, finish the README, **submit by 10:45** |
-| **Fri 26, 13:00–15:15** | Final judging |
+| **Thu 25, 12:45–20:00 (event)** | Phase F: Freshservice. Then Phase 4: the record book. Lunch and mentor hours sit inside this, so it's about 5 real hours |
+| **Thu 20:00 → Fri 08:00** | **Venue closes — it's not an overnight hackathon.** Everyone leaves |
+| **Fri 26, 08:00–10:45** | Finish, README, **submission closes at 10:45 sharp** |
+| **Fri 26, 10:45 onwards** | Judging, shortlist, finals on the main stage, closing at 16:20 |
 
 ---
 
