@@ -8,6 +8,7 @@ import { absoluteTime, relativeTime } from '@/shared/time'
 import type { Incident, IncidentEvent } from '@/shared/types'
 import { PhaseStepper, StatusDot, Tag, type Phase, type Tone } from '@/shared/ui/primitives'
 import { useMe } from '@/shared/useMe'
+import { useProposals } from '@/features/remediation/api'
 import {
   useIncident,
   useIncidentEvents,
@@ -20,16 +21,21 @@ import { Timeline } from './Timeline'
 
 const severityTone: Record<Incident['severity'], Tone> = { sev1: 'sev1', sev2: 'sev2', sev3: 'sev3' }
 
-/** Derive the five-step story from the events themselves — no extra state to keep in sync. */
-function phasesFrom(events: IncidentEvent[], incident: Incident): Phase[] {
+/**
+ * Derive the five-step story from the events themselves — no extra state to keep in sync.
+ * An incident that reused a sibling's fix has no approval events of its own; `sharedFix` is
+ * that fix's live status, so the stepper doesn't sit on "Awaiting approval" after approval.
+ */
+function phasesFrom(events: IncidentEvent[], incident: Incident, sharedFix?: string): Phase[] {
   const has = (type: string) => events.some((e) => e.type === type)
   const investigating = has('investigation.started')
   const diagnosed = has('investigation.completed')
   const investigationFailed = has('investigation.failed')
   const proposed = has('remediation.proposed') || has('remediation.reused')
-  const approved = has('remediation.approved')
-  const rejected = has('remediation.rejected')
-  const executed = has('execution.succeeded')
+  const approved =
+    has('remediation.approved') || sharedFix === 'approved' || sharedFix === 'executed'
+  const rejected = has('remediation.rejected') || sharedFix === 'rejected'
+  const executed = has('execution.succeeded') || sharedFix === 'executed'
   const verified = has('verification.passed') || has('incident.resolved_by_sibling')
   const rolledBack = has('rollback.succeeded')
 
@@ -68,12 +74,15 @@ export function IncidentDetailPage() {
   const investigate = useInvestigate(id)
   const transition = useTransition()
   const { can } = useMe()
+  const proposals = useProposals()
 
   if (incident.isError) return <p className="text-sev1">{incident.error.message}</p>
   if (!incident.data) return <div className="panel h-40 animate-pulse" />
 
   const inc = incident.data
   const list = events.data ?? []
+  const reusedId = list.find((e) => e.type === 'remediation.reused')?.payload.proposal_id
+  const sharedFix = proposals.data?.find((p) => p.id === reusedId)?.status
   const investigating =
     list.some((e) => e.type === 'investigation.started') &&
     !list.some((e) => ['investigation.completed', 'investigation.failed'].includes(e.type))
@@ -141,7 +150,7 @@ export function IncidentDetailPage() {
         </div>
 
         <div className="mt-4 border-t border-hairline pt-3">
-          <PhaseStepper phases={phasesFrom(list, inc)} />
+          <PhaseStepper phases={phasesFrom(list, inc, sharedFix)} />
         </div>
       </motion.section>
 

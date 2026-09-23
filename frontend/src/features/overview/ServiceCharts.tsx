@@ -29,7 +29,8 @@ type ServiceMetrics = {
 const ALERT_THRESHOLD = 0.05
 
 const percent = (v: number) => `${(v * 100).toFixed(v > 0 && v < 0.1 ? 1 : 0)}%`
-const millis = (v: number) => `${Math.round(v)} ms`
+const millis = (v: number) =>
+  v >= 1000 ? `${Number((v / 1000).toFixed(1))} s` : `${Math.round(v)} ms`
 
 const charts: {
   signal: Signal
@@ -117,6 +118,10 @@ function Legend({ names, showIncidents }: { names: string[]; showIncidents: bool
           incident opened
         </span>
       )}
+      <span className="flex items-center gap-1.5">
+        <span className="w-3.5 border-t border-dashed border-muted-foreground/70" />
+        {percent(ALERT_THRESHOLD)} alert threshold (error rate)
+      </span>
     </div>
   )
 }
@@ -156,6 +161,8 @@ function ChartPanel({
     let max = 0
     for (const row of rows) for (const name of names) max = Math.max(max, row[name] ?? 0)
     const floor = threshold != null ? threshold * 1.4 : signal === 'p95_latency_ms' ? 20 : 1
+    // A share of requests can't exceed 100%: past half, use quarter steps up to exactly 100%.
+    if (signal === 'error_ratio' && max * 1.1 > 0.5) return [0, 0.25, 0.5, 0.75, 1]
     return niceTicks(Math.max(max * 1.1, floor))
   }, [rows, names, threshold, signal])
 
@@ -187,7 +194,7 @@ function ChartPanel({
               minTickGap={48}
             />
             <YAxis
-              width={48}
+              width={52}
               tickFormatter={format}
               tick={{ fill: 'var(--muted-foreground)', fontSize: 10.5 }}
               tickLine={false}
@@ -205,12 +212,6 @@ function ChartPanel({
                 stroke="var(--muted-foreground)"
                 strokeOpacity={0.5}
                 strokeDasharray="3 4"
-                label={{
-                  value: `${percent(threshold)} alert threshold`,
-                  position: 'insideTopRight',
-                  fill: 'var(--muted-foreground)',
-                  fontSize: 10,
-                }}
               />
             )}
             <Tooltip
