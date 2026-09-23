@@ -22,7 +22,7 @@ Presentation: written Wed 23 evening, practised Thu 24 evening. Submission close
 Break → 2 incidents → 1 proposal (reused by the sibling) → approved → applied in 1s →
 verified → both closed, 68s after approval. 4/4 connectivity probes OK after `d87ab97`.
 
-## UI bugs to fix first (seen in that run)
+## UI bugs from that run — FIXED in the commit after 7ed5de2
 1. **Sibling incident's stepper says "Awaiting approval" after approval.** The approval /
    execution events live on the incident that owns the proposal; the sibling (with
    `remediation.reused`) only reads its own events. Make its stepper follow the shared
