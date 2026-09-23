@@ -9,7 +9,8 @@ recovery is verified, failed fixes roll back automatically, and every step lands
 tamper-evident audit log.
 
 > Status: in development for the Freshworks hackathon (Bangalore, 25–26 Sep 2026).
-> See [docs/implementation-plan.md](docs/implementation-plan.md) for the full plan.
+> **[docs/how-it-runs.md](docs/how-it-runs.md)** explains the stack and what happens when each
+> part fails. [docs/implementation-plan.md](docs/implementation-plan.md) has the full plan.
 
 ## The loop
 
