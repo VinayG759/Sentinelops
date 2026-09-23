@@ -135,13 +135,19 @@ class ScaleService(Action):
     def execute(self, params) -> dict:
         before = self._current(params.service)
         k8s.apps().patch_namespaced_deployment(
-            params.service, k8s.namespace(), {"spec": {"replicas": params.replicas}}
+            params.service,
+            k8s.namespace(),
+            {"spec": {"replicas": params.replicas}},
+            field_manager=k8s.FIELD_MANAGER,
         )
         return {"replicas": before}
 
     def rollback(self, params, before: dict) -> dict:
         k8s.apps().patch_namespaced_deployment(
-            params.service, k8s.namespace(), {"spec": {"replicas": before["replicas"]}}
+            params.service,
+            k8s.namespace(),
+            {"spec": {"replicas": before["replicas"]}},
+            field_manager=k8s.FIELD_MANAGER,
         )
         return {"replicas": before["replicas"]}
 
@@ -185,7 +191,10 @@ class SetServicePort(Action):
 
     def _set(self, name: str, port: int) -> None:
         k8s.core().patch_namespaced_service(
-            name, k8s.namespace(), [{"op": "replace", "path": "/spec/ports/0/port", "value": port}]
+            name,
+            k8s.namespace(),
+            [{"op": "replace", "path": "/spec/ports/0/port", "value": port}],
+            field_manager=k8s.FIELD_MANAGER,
         )
 
     def execute(self, params) -> dict:

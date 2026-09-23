@@ -40,6 +40,7 @@ class PortMismatch(Scenario):
         k8s.core().patch_namespaced_service(
             "postgres", k8s.namespace(),
             [{"op": "replace", "path": "/spec/ports/0/port", "value": port}],
+            field_manager=k8s.SIMULATOR_FIELD_MANAGER,
         )
 
     def inject(self) -> None:

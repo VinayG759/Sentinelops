@@ -12,6 +12,13 @@ from kubernetes.stream import stream
 
 from app.core.config import get_settings
 
+# Kubernetes records the name of whichever client last wrote each field, in
+# `metadata.managedFields`. Naming ourselves means `kubectl get svc postgres -o yaml`
+# shows, in the cluster's own words, that SentinelOps made the change — independent
+# evidence that does not come from our database.
+FIELD_MANAGER = "sentinelops-agent"
+SIMULATOR_FIELD_MANAGER = "sentinelops-simulator"
+
 
 @lru_cache
 def _api_client() -> client.ApiClient:
@@ -69,4 +76,5 @@ def rollout_restart(deployment: str) -> None:
         {"spec": {"template": {"metadata": {"annotations": {
             "kubectl.kubernetes.io/restartedAt": stamp
         }}}}},
+        field_manager=FIELD_MANAGER,
     )
