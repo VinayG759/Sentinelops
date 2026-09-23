@@ -32,7 +32,7 @@
 | W1 | Mon 22 Sep, night | 4 | Phase 0 |
 | W2 | Tue 23 Sep, day | 9 | Phases 1–2 |
 | W3 | Tue 23 Sep, night | 4 | Phase 3 (first half) |
-| W4 | Wed 24 Sep, until midday | 4 | Phase 3 done; freeze pre-event scope |
+| W4 | Wed 24 Sep, until midday | 4 | Phase 3 done; **submission prep** (README draft, screenshots, tunnel test); freeze pre-event scope |
 | — | Wed 24 Sep, afternoon | — | Business case review, **presentation practice** |
 | E1 | Thu 25 Sep, 12:45–20:00 | ~5 net (lunch 13:15–14:15, mentor hours 15:40–16:15 sit inside this) | Phase F (Freshservice), Phase 4 (audit) |
 | — | Thu 20:00 → Fri 08:00 | — | **Venue closes. Not an overnight hackathon** — everyone leaves at 20:00 |
@@ -407,7 +407,7 @@ integration page shows the last 20 calls.
 
 ---
 
-### Phase 4 — Audit trail  *(E1, ~2 h)*
+### Phase 4 — Audit trail  *(E1 → E2, ~2 h)*
 
 `GET /api/audit/verify` walks the chain → `{valid, checked, first_broken_id}`. The audit page
 has a filterable table, a **Verify chain** badge, and a JSON-lines export.
@@ -425,11 +425,17 @@ has a filterable table, a **Verify chain** badge, and a JSON-lines export.
 
 ---
 
-### Submission  *(E2, ~1.5 h, non-negotiable)*
+### Submission  *(split: prep in W4 ~1 h, finish in E2 ~0.5 h; non-negotiable)*
 
-README (problem, what it does, architecture diagram, how to run, **built before / built at
-the event**, screenshots), updated project description, business case linked, demo URL
-tested from a phone on mobile data, final push before **10:45**.
+Moved mostly before the freeze so the event hours go to event-built work. README writing is
+documentation, not product, so drafting it early takes no credit from event work.
+
+- **Prep (W4, before the freeze):** README draft (problem, what it does, architecture
+  diagram, how to run, **built before / built at the event** with `v0-pre-event` as the
+  boundary, screenshots of Phases 0–3), project description, business case linked, demo URL
+  tested from a phone on mobile data.
+- **Finish (E2):** add the Freshservice and audit sections plus their screenshots, re-test the
+  demo URL, final push before **10:45**.
 
 ---
 
@@ -478,14 +484,25 @@ failing test; verify the target (Supabase project, kubeconfig) before any destru
 | 1 Walking skeleton | W2 | 4 h | pre-event |
 | 2 Investigation | W2 | 5 h | pre-event |
 | 3 Safety core | W3–W4 | 8 h | pre-event |
+| Submission prep | W4 | 1 h | pre-event (docs only) |
 | F Freshservice integration | E1 | 4 h | **at event** |
-| 4 Audit | E1 | 2 h | **at event** |
-| 5 Depth | E2 | 1–3 h | at event, optional |
-| Submission | E2 | 1.5 h | at event |
+| 4 Audit | E1 → E2 | 2 h | **at event** |
+| Submission finish | E2 | 0.5 h | at event |
+| Buffer | E2 | ~1 h | Phase F/4 overrun first; else Phase 5.1 blast radius (~1 h, data already in `/api/topology`) |
 
-**Cut lines:** pre-event, Phase 3 is mandatory (drop auto-rollback to a manual button if
-behind). At the event, Phase F is mandatory and comes first; Phase 4 next; Phase 5 only with
-time left. Never cut the submission block.
+Event budget: E1 ~5 h + E2 ~2.5 h = **7.5 h**. F 4 + audit 2 + submission finish 0.5 = 6.5 h,
+leaving ~1 h of buffer, which exists only because submission prep moved before the freeze.
+
+**Cut lines:**
+- **Pre-event:** Phase 3 is mandatory (drop auto-rollback to a manual button if behind).
+  Submission prep comes next; it's what creates the event buffer.
+- **At the event:** Phase F is mandatory and comes first; Phase 4 next; Phase 5 only if the
+  buffer survives to Friday. Never cut the submission finish.
+- **Inside Phase F, if it runs long:** drop `search_solution_articles` first, then approval
+  read-back (fall back to the Q2-no path: approve in SentinelOps, mirror to the change).
+  Ticket → note → change → resolve + problem is the demo-critical core.
+- **Checkpoint Thu 18:30:** if Phase F isn't done, Phase 4 shrinks to `/api/audit/verify`,
+  the badge and the tamper demo (drop the filters and JSON-lines export).
 
 **Teammates (parallel, non-code):** business case (§11), pitch deck, Freshservice trial setup
 and seeding a few solution articles, demo rehearsal as "the judge asking hard questions".
