@@ -18,9 +18,18 @@ Presentation: written Wed 23 evening, practised Thu 24 evening. Submission close
   (18/48 connectivity probes failed; could also break the executor). Cluster test added
   (`uv run pytest -m cluster`).
 
-## Not yet verified
-- **Live break → fix run after `d87ab97`** through the UI: expect zero failed
-  `check_connectivity` steps and "Root cause found" on both incidents.
+## Verified live (23 Sep, 12:46 IST)
+Break → 2 incidents → 1 proposal (reused by the sibling) → approved → applied in 1s →
+verified → both closed, 68s after approval. 4/4 connectivity probes OK after `d87ab97`.
+
+## UI bugs to fix first (seen in that run)
+1. **Sibling incident's stepper says "Awaiting approval" after approval.** The approval /
+   execution events live on the incident that owns the proposal; the sibling (with
+   `remediation.reused`) only reads its own events. Make its stepper follow the shared
+   proposal's status. Misleads anyone who opens the second incident.
+2. Overview error-rate axis went to 200%: cap ratio charts at 100% (ticks 0/25/50/75/100).
+3. Latency ticks like "8000 ms" wrap: format ≥1000 ms as seconds, widen the axis.
+4. "5.0% alert threshold" label collides with the x-axis ticks when the scale is large.
 
 ## Waiting on others
 - **Freshservice API key**: trial `codexplorers.freshservice.com` (Enterprise, 14 days) shows
