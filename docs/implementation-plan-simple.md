@@ -113,7 +113,7 @@ same mistake into a **"break it" button**, so SentinelOps can find and fix it li
 | **Tue 22 night → Wed 23 morning** | Phases 2–3: the AI detective and the safety system ✅ |
 | **Wed 23, rest of day** | Test Freshservice (waiting for API access), **draft the README** ✅, click through the test checklist |
 | **Thu 24, day and night** | UI tweaks, test the demo link, full practice runs, backup video. **Freeze at the end of the night** |
-| _time to be decided_ | Review the business case, **practise the presentation** |
+| **Wed 23 evening · Thu 24 evening** | **Write the presentation** and review the business case (Wed); **practise it** (Thu evening) |
 | **Fri 25, 12:45–20:00 (event, day 1)** | Phase F: Freshservice. Then Phase 4: the record book. Lunch and mentor hours sit inside this, so it's about 5 real hours |
 | **Fri 20:00 → Sat 08:00** | **Venue closes — it's not an overnight hackathon.** Everyone leaves |
 | **Sat 26, 08:00–10:45 (day 2)** | Finish the record book, add the Freshservice part to the README, **submission closes at 10:45 sharp** |

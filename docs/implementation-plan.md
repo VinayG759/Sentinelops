@@ -33,7 +33,7 @@
 | W2 | Tue 22 night → Wed 23 morning | done | Phases 2–3 (verified end to end through the UI) |
 | W3 | Wed 23 Sep, rest of day | ~8 | Freshservice spike (waiting on API access), **submission prep** (README draft done), manual checklist |
 | W4 | Thu 24 Sep, day and night | ~12 | UI tweaks, tunnel test, full demo runs, backup video; **freeze and tag `v0-pre-event` at the end of the night** |
-| — | _slot to be decided_ | — | Business case review, **presentation practice** |
+| — | Wed 23 evening · Thu 24 evening | — | **Craft the presentation** and review the business case (Wed); **practise it** (Thu evening) |
 | E1 | **Fri 25 Sep** (Day 1), 12:45–20:00 | ~5 net (lunch 13:15–14:15, mentor hours 15:40–16:15 sit inside this) | Phase F (Freshservice), Phase 4 (audit) |
 | — | Fri 20:00 → Sat 08:00 | — | **Venue closes. Not an overnight hackathon** — everyone leaves at 20:00 |
 | E2 | **Sat 26 Sep** (Day 2), 08:00–10:45 | ~2.5 | Finish, README, **submission closes 10:45 sharp** |
