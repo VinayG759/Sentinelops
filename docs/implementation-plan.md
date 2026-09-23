@@ -29,18 +29,21 @@
 
 | Window | Date | Hours (approx.) | Target |
 |---|---|---|---|
-| W1 | Mon 22 Sep, night | 4 | Phase 0 |
-| W2 | Tue 23 Sep, day | 9 | Phases 1–2 |
-| W3 | Tue 23 Sep, night | 4 | Phase 3 (first half) |
-| W4 | Wed 24 Sep, until midday | 4 | Phase 3 done; **submission prep** (README draft, screenshots, tunnel test); freeze pre-event scope |
-| — | Wed 24 Sep, afternoon | — | Business case review, **presentation practice** |
-| E1 | Thu 25 Sep, 12:45–20:00 | ~5 net (lunch 13:15–14:15, mentor hours 15:40–16:15 sit inside this) | Phase F (Freshservice), Phase 4 (audit) |
-| — | Thu 20:00 → Fri 08:00 | — | **Venue closes. Not an overnight hackathon** — everyone leaves at 20:00 |
-| E2 | Fri 26 Sep, 08:00–10:45 | ~2.5 | Finish, README, **submission closes 10:45 sharp** |
-| — | Fri 26 Sep, 10:45–15:00 | — | Judging round 1, shortlisting, finals on the main stage; closing 16:20 |
+| W1 | Tue 22 Sep | done | Phases 0–1 |
+| W2 | Tue 22 night → Wed 23 morning | done | Phases 2–3 (verified end to end through the UI) |
+| W3 | Wed 23 Sep, rest of day | ~8 | Freshservice spike (waiting on API access), **submission prep** (README draft done), manual checklist |
+| W4 | Thu 24 Sep, day and night | ~12 | UI tweaks, tunnel test, full demo runs, backup video; **freeze and tag `v0-pre-event` at the end of the night** |
+| — | _slot to be decided_ | — | Business case review, **presentation practice** |
+| E1 | **Fri 25 Sep** (Day 1), 12:45–20:00 | ~5 net (lunch 13:15–14:15, mentor hours 15:40–16:15 sit inside this) | Phase F (Freshservice), Phase 4 (audit) |
+| — | Fri 20:00 → Sat 08:00 | — | **Venue closes. Not an overnight hackathon** — everyone leaves at 20:00 |
+| E2 | **Sat 26 Sep** (Day 2), 08:00–10:45 | ~2.5 | Finish, README, **submission closes 10:45 sharp** |
+| — | Sat 26 Sep, 10:45–15:00 | — | Judging round 1, shortlisting, finals on the main stage; closing 16:20 |
 
-**Pre-event cut line:** Phase 3 working end to end by midday 24 Sep. If behind, drop Phase 3's
-auto-rollback to "manual rollback button" rather than slipping into presentation practice.
+> Weekdays corrected 23 Sep: the handbook gives dates only, and 25–26 Sep 2026 fall on
+> Friday–Saturday. Earlier versions of this plan said Thursday–Friday.
+
+**Pre-event cut line:** Phase 3 is done (23 Sep). Before the freeze, in priority order:
+submission prep → manual checklist → full demo runs + backup video → UI tweaks.
 
 ---
 
@@ -336,7 +339,7 @@ missing tool result. Improve the tool before the prompt.
 
 ---
 
-### Phase 3 — Safety core  *(W3–W4, ~8 h)*
+### Phase 3 — Safety core  *(W2, ~8 h)*
 
 **Build:**
 1. **Proposal:** after diagnosis, the agent may call `propose_action(action, params,
@@ -370,7 +373,7 @@ viewer); kill switch; execute → rollback restores the spec (cluster test).
 **Debugging:** proposal status → approvals rows → `autonomy_paused` → executor logs →
 `executions.result` → `kubectl rollout history`.
 
-> **Pre-event freeze (24 Sep, midday):** Phases 0–3 done. Tag `v0-pre-event`. Everything after
+> **Pre-event freeze (end of Thu 24 Sep night, before the event opens Fri 25 at 12:45):** Phases 0–3 done. Tag `v0-pre-event`. Everything after
 > this tag is hackathon-built and listed as such in the README.
 
 ---
@@ -425,12 +428,12 @@ has a filterable table, a **Verify chain** badge, and a JSON-lines export.
 
 ---
 
-### Submission  *(split: prep in W4 ~1 h, finish in E2 ~0.5 h; non-negotiable)*
+### Submission  *(split: prep in W3–W4 ~1 h, finish in E2 ~0.5 h; non-negotiable)*
 
 Moved mostly before the freeze so the event hours go to event-built work. README writing is
 documentation, not product, so drafting it early takes no credit from event work.
 
-- **Prep (W4, before the freeze):** README draft (problem, what it does, architecture
+- **Prep (W3–W4, before the freeze):** README draft (problem, what it does, architecture
   diagram, how to run, **built before / built at the event** with `v0-pre-event` as the
   boundary, screenshots of Phases 0–3), project description, business case linked, demo URL
   tested from a phone on mobile data.
@@ -483,8 +486,8 @@ failing test; verify the target (Supabase project, kubeconfig) before any destru
 | 0 Foundation + Freshservice spike | W1 | 4 h | pre-event |
 | 1 Walking skeleton | W2 | 4 h | pre-event |
 | 2 Investigation | W2 | 5 h | pre-event |
-| 3 Safety core | W3–W4 | 8 h | pre-event |
-| Submission prep | W4 | 1 h | pre-event (docs only) |
+| 3 Safety core | W2 | 8 h | pre-event |
+| Submission prep | W3–W4 | 1 h | pre-event (docs only) |
 | F Freshservice integration | E1 | 4 h | **at event** |
 | 4 Audit | E1 → E2 | 2 h | **at event** |
 | Submission finish | E2 | 0.5 h | at event |
@@ -497,11 +500,11 @@ leaving ~1 h of buffer, which exists only because submission prep moved before t
 - **Pre-event:** Phase 3 is mandatory (drop auto-rollback to a manual button if behind).
   Submission prep comes next; it's what creates the event buffer.
 - **At the event:** Phase F is mandatory and comes first; Phase 4 next; Phase 5 only if the
-  buffer survives to Friday. Never cut the submission finish.
+  buffer survives to Day 2. Never cut the submission finish.
 - **Inside Phase F, if it runs long:** drop `search_solution_articles` first, then approval
   read-back (fall back to the Q2-no path: approve in SentinelOps, mirror to the change).
   Ticket → note → change → resolve + problem is the demo-critical core.
-- **Checkpoint Thu 18:30:** if Phase F isn't done, Phase 4 shrinks to `/api/audit/verify`,
+- **Checkpoint Day 1 (Fri 25) 18:30:** if Phase F isn't done, Phase 4 shrinks to `/api/audit/verify`,
   the badge and the tamper demo (drop the filters and JSON-lines export).
 
 **Teammates (parallel, non-code):** business case (§11), pitch deck, Freshservice trial setup

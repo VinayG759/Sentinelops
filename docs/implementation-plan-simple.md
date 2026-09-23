@@ -109,14 +109,18 @@ same mistake into a **"break it" button**, so SentinelOps can find and fix it li
 
 | When | What |
 |---|---|
-| **Tonight (Mon 22)** | Phase 0: set up, fix the pretend company, test Freshservice |
-| **Tue 23, day** | Phases 1–2: notice problems live, and the AI detective |
-| **Tue 23, night → Wed 24, midday** | Phase 3: the safety system, then **draft the README** and test the demo link. **Freeze here** |
-| **Wed 24, afternoon** | Review the business case, **practise the presentation** |
-| **Thu 25, 12:45–20:00 (event)** | Phase F: Freshservice. Then Phase 4: the record book. Lunch and mentor hours sit inside this, so it's about 5 real hours |
-| **Thu 20:00 → Fri 08:00** | **Venue closes — it's not an overnight hackathon.** Everyone leaves |
-| **Fri 26, 08:00–10:45** | Finish the record book, add the Freshservice part to the README, **submission closes at 10:45 sharp** |
-| **Fri 26, 10:45 onwards** | Judging, shortlist, finals on the main stage, closing at 16:20 |
+| **Tue 22** | Phases 0–1: set up, fix the pretend company, notice problems live ✅ |
+| **Tue 22 night → Wed 23 morning** | Phases 2–3: the AI detective and the safety system ✅ |
+| **Wed 23, rest of day** | Test Freshservice (waiting for API access), **draft the README** ✅, click through the test checklist |
+| **Thu 24, day and night** | UI tweaks, test the demo link, full practice runs, backup video. **Freeze at the end of the night** |
+| _time to be decided_ | Review the business case, **practise the presentation** |
+| **Fri 25, 12:45–20:00 (event, day 1)** | Phase F: Freshservice. Then Phase 4: the record book. Lunch and mentor hours sit inside this, so it's about 5 real hours |
+| **Fri 20:00 → Sat 08:00** | **Venue closes — it's not an overnight hackathon.** Everyone leaves |
+| **Sat 26, 08:00–10:45 (day 2)** | Finish the record book, add the Freshservice part to the README, **submission closes at 10:45 sharp** |
+| **Sat 26, 10:45 onwards** | Judging, shortlist, finals on the main stage, closing at 16:20 |
+
+> The handbook only gives dates. 25–26 September 2026 are a **Friday and Saturday** —
+> earlier versions of this plan wrongly said Thursday and Friday.
 
 ---
 
@@ -124,7 +128,7 @@ same mistake into a **"break it" button**, so SentinelOps can find and fix it li
 
 For each one: **what we build**, **what you'll see**, and **how we check it**.
 
-### Phase 0 — Set up  *(tonight, ~4 hours)*
+### Phase 0 — Set up  *(Tue 22, ~4 hours)*
 
 - A fresh project and a public GitHub repo. **Commit often.** The history is your proof of
   what was built when.
@@ -140,7 +144,7 @@ For each one: **what we build**, **what you'll see**, and **how we check it**.
 
 **You'll see:** both services healthy (0% errors), login working, and a test ticket in Freshservice.
 
-### Phase 1 — Break it and see it  *(Tue, ~4 hours)*
+### Phase 1 — Break it and see it  *(Tue 22, ~4 hours)*
 
 - The events list with tamper-proofing: each note carries a fingerprint of the one before,
   like a wax seal.
@@ -152,7 +156,7 @@ For each one: **what we build**, **what you'll see**, and **how we check it**.
 
 **You'll see:** press "Break it", and within 45 seconds an incident appears by itself.
 
-### Phase 2 — The detective  *(Tue, ~5 hours)*
+### Phase 2 — The detective  *(Tue night, ~5 hours)*
 
 - **Look-only tools** for the AI: read metrics, logs, pods, recent changes, dependencies,
   connection-pool numbers, and "can service X reach door Y?"
@@ -166,7 +170,7 @@ proof clickable.
 **We check it by:** exam papers. We save each scenario's tool results and run the AI 5
 times. It should be right at least 4 times.
 
-### Phase 3 — The safety system  *(Tue night → Wed midday, ~8 hours)*
+### Phase 3 — The safety system  *(Tue night → Wed morning, ~8 hours)*
 
 - The AI **proposes** a fix from the menu; the system checks it's allowed.
 - **Risk rules** (plain rules, not AI) decide how risky it is and who must approve.
@@ -180,7 +184,7 @@ times. It should be right at least 4 times.
 
 **You'll see:** Approve → the real cluster changes → errors drop to zero → the incident closes itself.
 
-> **Freeze on Wednesday midday.** Mark this point in git (`v0-pre-event`). Everything
+> **Freeze at the end of Thursday night (24 Sep).** Mark this point in git (`v0-pre-event`). Everything
 > after it counts as built at the hackathon.
 
 ### Phase F — Freshservice  *(event day, ~4 hours, required)*
@@ -201,32 +205,32 @@ the badge turns **red** and points at it.
 A service map showing what's broken and what's affected; deploy markers on the charts;
 maybe a voice call to the approver (partner prize track). All optional.
 
-### Submission  *(mostly before the freeze, ~1 hour; a short finish on Friday)*
+### Submission  *(mostly before the freeze, ~1 hour; a short finish on Saturday)*
 
 **Before the freeze:** README, project description, business case link, and the demo link
 tested from a phone on mobile data. Writing about the project isn't building it, so doing it
 early doesn't take anything away from what counts as built at the event.
 
-**Friday morning (~30 min):** add the Freshservice and record-book parts, re-test the link,
+**Saturday morning (~30 min):** add the Freshservice and record-book parts, re-test the link,
 final push **before 10:45**.
 
 ---
 
 ## If time runs short
 
-The event gives about **7.5 real hours** (5 on Thursday, 2.5 on Friday). Freshservice (4) +
+The event gives about **7.5 real hours** (5 on Friday, 2.5 on Saturday). Freshservice (4) +
 record book (2) + finishing the submission (0.5) = 6.5, so there's about **1 hour spare**,
 and only because the README is written beforehand.
 
 - **Before the event:** the safety system (Phase 3) must work. If needed, make "undo" a
   button instead of automatic. Then the README draft, because that's what creates the spare hour.
 - **At the event:** Freshservice first (it's required), then the record book. Extras only
-  if the spare hour is still there on Friday.
+  if the spare hour is still there on Saturday.
 - **If Freshservice takes too long:** skip the "search how-to articles" part first. If it's
   still slow, approve in SentinelOps and copy the decision into Freshservice rather than
   reading approvals back. Ticket, note, change request, and closing with a Problem record
   are the parts the demo needs.
-- **Thursday 18:30 check:** if Freshservice isn't finished, the record book shrinks to just
+- **Friday 18:30 check (day 1):** if Freshservice isn't finished, the record book shrinks to just
   the Verify badge and the tamper demo.
 - **Never** cut the final submission push.
 
