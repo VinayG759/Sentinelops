@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
+import { useState } from 'react'
 import { ArrowUpRight, Database, Server } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
@@ -11,6 +12,7 @@ import { Animated, Sparkline, StatusDot, Tag, type Tone } from '@/shared/ui/prim
 import { useLiveTable } from '@/shared/useLiveTable'
 import { useProposals } from '@/features/remediation/api'
 import { ServiceCharts } from './ServiceCharts'
+import { ServicePanel } from './ServicePanel'
 import { StatTiles } from './StatTiles'
 
 type ServiceHealth = {
@@ -47,6 +49,7 @@ export function OverviewPage() {
     queryFn: () => api<Incident[]>('/api/incidents'),
   })
   const pending = useProposals('pending')
+  const [selected, setSelected] = useState<string | null>(null)
 
   const open = (incidents.data ?? []).filter((i) => i.status !== 'resolved')
   const worstService = (services.data ?? []).reduce<ServiceHealth['status']>(
@@ -70,7 +73,12 @@ export function OverviewPage() {
         <SystemBanner status={worst} openCount={open.length} awaiting={pending.data?.length ?? 0} />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {(services.data ?? []).map((service, i) => (
-            <ServiceCard key={service.name} service={service} index={i} />
+            <ServiceCard
+              key={service.name}
+              service={service}
+              index={i}
+              onOpen={() => setSelected(service.name)}
+            />
           ))}
           {services.isLoading &&
             [0, 1, 2].map((i) => <div key={i} className="panel h-[132px] animate-pulse" />)}
@@ -114,6 +122,12 @@ export function OverviewPage() {
       <Section title="How well is it working?" subtitle="Outcomes for incidents opened in the selected range">
         <StatTiles />
       </Section>
+
+      <ServicePanel
+        name={selected}
+        incidents={incidents.data ?? []}
+        onClose={() => setSelected(null)}
+      />
     </div>
   )
 }
@@ -196,7 +210,15 @@ function HeaderStat({ label, value, tone }: { label: string; value: number; tone
   )
 }
 
-function ServiceCard({ service, index }: { service: ServiceHealth; index: number }) {
+function ServiceCard({
+  service,
+  index,
+  onOpen,
+}: {
+  service: ServiceHealth
+  index: number
+  onOpen: () => void
+}) {
   const tone = statusTone[service.status]
   const Icon = service.kind === 'database' ? Database : Server
   const ratio = service.error_ratio ?? 0
@@ -206,8 +228,13 @@ function ServiceCard({ service, index }: { service: ServiceHealth; index: number
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${service.name} details`}
+      onClick={onOpen}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen()}
       className={cn(
-        'panel overflow-hidden p-4',
+        'panel cursor-pointer overflow-hidden p-4 text-left transition-colors hover:border-foreground/20 focus-visible:outline-2 focus-visible:outline-signal',
         service.status === 'critical' && 'glow-sev1',
         service.status === 'degraded' && 'glow-sev2',
       )}

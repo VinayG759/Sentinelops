@@ -46,6 +46,20 @@ def running_pod(app_label: str) -> str:
     raise RuntimeError(f"No running pod for app={app_label}")
 
 
+def pod_logs(deployment: str, lines: int) -> tuple[str, str]:
+    """(pod name, last `lines` log lines, each prefixed with its RFC 3339 timestamp).
+
+    Reads the raw bytes and decodes them: with preloaded content this client version returns
+    the *repr* of the bytes ("b'line1\\nline2'"), i.e. one mangled line.
+    """
+    pod = running_pod(deployment)
+    resp = core().read_namespaced_pod_log(
+        pod, namespace(), tail_lines=lines, timestamps=True, _request_timeout=10,
+        _preload_content=False,
+    )
+    return pod, resp.data.decode("utf-8", errors="replace")
+
+
 def exec_in_pod(pod: str, command: list[str]) -> str:
     """Run a command in a pod's first container and return its combined output.
 

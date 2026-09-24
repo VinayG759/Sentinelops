@@ -42,3 +42,18 @@ async def series(prefix: str, start: float, end: float, step: int) -> dict[str, 
         "requests_per_second": request_rate,
         "p95_latency_ms": p95,
     }
+
+
+async def pool_series(service: str, start: float, end: float, step: int) -> dict[str, list]:
+    """Database connection-pool gauges for one service, summed across its pods.
+
+    'waiting' above zero is the direct evidence of pool exhaustion: queries queued because
+    every connection is busy.
+    """
+    app = f'{{app="{service}"}}'
+    open_, idle, waiting = await asyncio.gather(
+        prometheus.query_range(f"sum(db_pool_total{app})", start, end, step),
+        prometheus.query_range(f"sum(db_pool_idle{app})", start, end, step),
+        prometheus.query_range(f"sum(db_pool_waiting{app})", start, end, step),
+    )
+    return {"pool_open": open_, "pool_idle": idle, "pool_waiting": waiting}

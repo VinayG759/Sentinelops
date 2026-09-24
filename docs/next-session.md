@@ -50,3 +50,15 @@ verified → both closed, 68s after approval. 4/4 connectivity probes OK after `
 - Backend doesn't auto-reload; restart `uv run python run.py` after backend changes.
 - `browse` daemon can reset between calls: do login → navigate → screenshot in ONE chain;
   a selector matching several elements aborts the chain (use `>> nth=0` or `aside a[...]`).
+
+## IN PROGRESS (24 Sep, uncommitted — review, verify, then commit)
+- Service side panel: `frontend/src/features/overview/ServicePanel.tsx` (click a service card),
+  backend `GET /api/topology/{name}` + `/{name}/logs` (503 when cluster/Prometheus down).
+  Metrics + Incidents tabs verified live. Logs tab needs a backend restart, then re-check;
+  also re-check Esc closes the panel.
+- `core/k8s.pod_logs` fixed: client returned repr of bytes ("b'...'"); now decoded + timestamps.
+- DECISION PENDING (Vinay): apply the same fix to the agent's `get_logs` tool
+  (`investigation/tools.py:78`) — then re-run one break→fix.
+- Freshservice: `.env` domain is now `freshworks065.freshservice.com` (Vinay's sandbox).
+  Every API call returns 403 even with no key → blocked before key check. Waiting on
+  Mohideen. Key was pasted in chat → Reset API Key once it works.

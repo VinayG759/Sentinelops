@@ -7,7 +7,8 @@ Prometheus and Kubernetes — nothing here is illustrative.
 import asyncio
 import time
 
-from fastapi import APIRouter, Depends, Query
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.core import k8s, prometheus, service_metrics
@@ -129,3 +130,65 @@ async def all_service_metrics(
         start=start, end=end, step=step,
         services={row["name"]: result for row, result in zip(rows, results, strict=True)},
     )
+
+
+async def _service(name: str) -> dict:
+    row = next((r for r in await _services() if r["name"] == name), None)
+    if row is None:
+        raise HTTPException(404, f"Unknown service '{name}'")
+    return row
+
+
+class ServiceDetail(BaseModel):
+    health: ServiceHealth
+    start: float
+    end: float
+    step: int
+    # signal -> [(unix_seconds, value)]; empty for components without application metrics
+    series: dict[str, list[tuple[float, float]]]
+    pool_max_per_pod: float | None = None
+
+
+@router.get("/{name}", response_model=ServiceDetail)
+async def service_detail(
+    name: str, minutes: int = Query(60, ge=5, le=360), _: User = Depends(current_user)
+):
+    """Everything the service panel shows: current health plus its charts over the range."""
+    row = await _service(name)
+    end = time.time()
+    start, step = end - minutes * 60, service_metrics.step_for(minutes)
+    try:
+        health = await _service_health(row, minutes)
+        if not row["metric_prefix"]:
+            return ServiceDetail(health=health, start=start, end=end, step=step, series={})
+        golden, pool, pool_max = await asyncio.gather(
+            service_metrics.series(row["metric_prefix"], start, end, step),
+            service_metrics.pool_series(name, start, end, step),
+            prometheus.query_scalar(f'max(db_pool_max{{app="{name}"}})'),
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, f"Prometheus unreachable: {type(exc).__name__}") from exc
+    return ServiceDetail(
+        health=health, start=start, end=end, step=step,
+        series=golden | pool, pool_max_per_pod=pool_max,
+    )
+
+
+class ServiceLogs(BaseModel):
+    pod: str
+    lines: list[str]
+
+
+@router.get("/{name}/logs", response_model=ServiceLogs)
+async def service_logs(
+    name: str, lines: int = Query(80, ge=1, le=300), _: User = Depends(current_user)
+):
+    """The last log lines from one running pod of the service (read-only)."""
+    row = await _service(name)
+    try:
+        pod, text = await asyncio.to_thread(k8s.pod_logs, row["deployment"], lines)
+    except RuntimeError as exc:  # no running pod
+        raise HTTPException(503, str(exc)) from exc
+    except Exception as exc:  # cluster down or API error: say so instead of a bare 500
+        raise HTTPException(503, f"Kubernetes unreachable: {type(exc).__name__}") from exc
+    return ServiceLogs(pod=pod, lines=text.splitlines())
