@@ -69,17 +69,11 @@ async def get_service_metrics(service: str, window: str = "2m") -> dict:
 
 
 async def get_logs(service: str, lines: int = 20) -> dict:
-    """Recent log lines from one pod of the service."""
+    """Recent log lines from one pod of the service. Each line starts with its UTC timestamp,
+    so errors from before the incident opened can be told apart from current ones."""
     row = await _service_row(service)
     lines = min(lines, MAX_LOG_LINES)
-
-    def read() -> tuple[str, str]:
-        pod = k8s.running_pod(row["deployment"])
-        return pod, k8s.core().read_namespaced_pod_log(
-            pod, k8s.namespace(), tail_lines=lines, _request_timeout=10
-        )
-
-    pod, text = await asyncio.to_thread(read)
+    pod, text = await asyncio.to_thread(k8s.pod_logs, row["deployment"], lines)
     return {"service": service, "pod": pod, "lines": text.strip().splitlines()}
 
 
