@@ -37,6 +37,11 @@ class Action(ABC):
     def affected_services(self, params: BaseModel) -> list[str]: ...
 
     @abstractmethod
+    def target(self, params: BaseModel) -> str:
+        """The one thing this change modifies. Two changes to the same target are one decision:
+        they are merged at proposal time and never executed concurrently."""
+
+    @abstractmethod
     def preview(self, params: BaseModel) -> dict: ...
 
     @abstractmethod
@@ -76,6 +81,9 @@ class RestartService(Action):
 
     def risk(self, params) -> Risk:
         return "low"
+
+    def target(self, params) -> str:
+        return f"deployment/{params.service}"
 
     def affected_services(self, params) -> list[str]:
         return [params.service]
@@ -118,6 +126,9 @@ class ScaleService(Action):
 
     def risk(self, params) -> Risk:
         return "low"
+
+    def target(self, params) -> str:
+        return f"deployment/{params.service}"
 
     def affected_services(self, params) -> list[str]:
         return [params.service]
@@ -175,6 +186,9 @@ class SetServicePort(Action):
     def risk(self, params) -> Risk:
         return "medium"  # touches shared networking used by every dependent service
 
+    def target(self, params) -> str:
+        return f"service/{params.network_service}"
+
     def affected_services(self, params) -> list[str]:
         return sorted(ALLOWED_SERVICES)
 
@@ -229,6 +243,9 @@ class SetDatabaseMaxConnections(Action):
 
     def risk(self, params) -> Risk:
         return "high"  # restarts the shared database
+
+    def target(self, params) -> str:
+        return "postgres/max_connections"
 
     def affected_services(self, params) -> list[str]:
         return sorted(ALLOWED_SERVICES | {"postgres"})

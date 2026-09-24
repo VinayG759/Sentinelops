@@ -29,6 +29,10 @@ SETTLE_SECONDS = 15  # let the change take effect before the first check
 
 SWEEP_SECONDS = 30
 
+# Targets with a change being applied or verified right now. The event loop is
+# single-threaded and nothing awaits between the check and the add, so this is atomic.
+_busy_targets: set[str] = set()
+
 
 @events.on("remediation.approved")
 async def _on_approved(event: events.Event) -> None:
@@ -79,6 +83,22 @@ async def run(proposal_id: UUID) -> None:
                           {"proposal_id": str(proposal_id), "reason": str(exc)}, incident_id)
         return
 
+    target = action.target(params)
+    if target in _busy_targets:
+        reason = f"superseded: another change to {target} is already being applied"
+        await service.supersede(proposal_id)
+        await events.emit("execution.refused", "system",
+                          {"proposal_id": str(proposal_id), "reason": reason}, incident_id)
+        return log.warning("execution refused", extra={"reason": reason})
+    _busy_targets.add(target)
+    try:
+        await _execute(proposal, action, params)
+    finally:
+        _busy_targets.discard(target)
+
+
+async def _execute(proposal: dict, action, params) -> None:
+    proposal_id, incident_id = proposal["id"], proposal["incident_id"]
     execution_id = await _claim(proposal_id)
     if execution_id is None:
         return log.warning("already executed", extra={"proposal_id": str(proposal_id)})

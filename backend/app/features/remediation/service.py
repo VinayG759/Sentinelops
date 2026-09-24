@@ -36,30 +36,41 @@ async def set_autonomy_paused(paused: bool, actor: str) -> bool:
 
 
 class AlreadyProposed(Exception):
-    """An identical fix is already waiting for a human."""
+    """A fix changing the same thing is already waiting for a human (or about to run)."""
 
     def __init__(self, proposal: dict):
         self.proposal = proposal
-        super().__init__(f"identical proposal {proposal['id']} is already pending approval")
+        super().__init__(f"proposal {proposal['id']} already changes the same target")
 
 
-async def _identical_pending(action_name: str, params: dict) -> dict | None:
-    """One outage often opens several incidents; proposing the same fix per incident would
-    show a human the same card twice and patch the cluster twice."""
+async def _open_for_same_target(action: actions.Action, params) -> dict | None:
+    """One outage often opens several incidents, and each investigation may pick a slightly
+    different value (e.g. max_connections 50 vs 100). Two proposals changing the same target
+    would show a human two cards and patch production twice, so the first one stands."""
+    target = action.target(params)
     async with get_pool().connection() as conn:
-        cur = await conn.execute(
-            f"select {PROPOSAL_COLUMNS} from public.proposals "
-            "where status = 'pending' and expires_at > now() and action = %s and params = %s "
-            "limit 1",
-            (action_name, Jsonb(params)),
-        )
-        return await cur.fetchone()
+        rows = await (
+            await conn.execute(
+                f"select {PROPOSAL_COLUMNS} from public.proposals "
+                "where status in ('pending', 'approved') and expires_at > now() and action = %s "
+                "order by created_at",
+                (action.name,),
+            )
+        ).fetchall()
+    for row in rows:
+        try:
+            _, existing = actions.validate(row["action"], row["params"])
+        except (actions.NotAllowed, ValueError):
+            continue
+        if action.target(existing) == target:
+            return row
+    return None
 
 
 async def propose(incident_id: UUID, action_name: str, raw_params: dict, rationale: str) -> dict:
     """Validate and record a proposal. Raises actions.NotAllowed / ValidationError if rejected."""
     action, params = actions.validate(action_name, raw_params)
-    existing = await _identical_pending(action.name, params.model_dump())
+    existing = await _open_for_same_target(action, params)
     if existing:
         raise AlreadyProposed(existing)
 
@@ -150,6 +161,16 @@ async def decide_proposal(proposal_id: UUID, decision: str, user_id: str, reason
         )
     events.dispatch(event)  # the executor listens for remediation.approved
     return proposal
+
+
+async def supersede(proposal_id: UUID) -> None:
+    """Retire an approved proposal because another change to the same target won. Marked
+    expired (not rejected: no human said no) so the executor's sweep never retries it."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "update public.proposals set status = 'expired' where id = %s and status = 'approved'",
+            (proposal_id,),
+        )
 
 
 async def expire_stale_proposals() -> None:

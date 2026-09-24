@@ -77,6 +77,7 @@ export function OverviewPage() {
               key={service.name}
               service={service}
               index={i}
+              openIncidents={open.filter((o) => o.service === service.name).length}
               onOpen={() => setSelected(service.name)}
             />
           ))}
@@ -213,10 +214,12 @@ function HeaderStat({ label, value, tone }: { label: string; value: number; tone
 function ServiceCard({
   service,
   index,
+  openIncidents,
   onOpen,
 }: {
   service: ServiceHealth
   index: number
+  openIncidents: number
   onOpen: () => void
 }) {
   const tone = statusTone[service.status]
@@ -244,10 +247,19 @@ function ServiceCard({
           <Icon className="size-3.5 text-muted-foreground" />
           <span className="font-mono text-[13px]">{service.name}</span>
         </div>
-        <Tag tone={tone}>
-          <StatusDot tone={tone} live={service.status !== 'healthy'} />
-          {service.status}
-        </Tag>
+        <div className="flex items-center gap-1.5">
+          {/* Metrics can recover before an incident closes (e.g. while a fix is being verified),
+              so a healthy card still says when its service has an open incident. */}
+          {openIncidents > 0 && service.status === 'healthy' && (
+            <Tag tone="sev2">
+              {openIncidents} open incident{openIncidents > 1 ? 's' : ''}
+            </Tag>
+          )}
+          <Tag tone={tone}>
+            <StatusDot tone={tone} live={service.status !== 'healthy'} />
+            {service.status}
+          </Tag>
+        </div>
       </div>
 
       <div className="mt-3 flex items-end justify-between gap-4">

@@ -1,5 +1,6 @@
 """The executor: refuses unless everything checks out, verifies, and rolls back on failure."""
 
+import asyncio
 from uuid import uuid4
 
 import pytest
@@ -88,6 +89,9 @@ def world(monkeypatch):
         def verify_query(self, params):
             return "vector(1)"
 
+        def target(self, params):
+            return "deployment/order-service"
+
         def affected_services(self, params):
             return ["order-service"]
 
@@ -95,6 +99,24 @@ def world(monkeypatch):
     monkeypatch.setattr(executor.actions, "validate", lambda name, params: (action, params))
     monkeypatch.setitem(executor.actions.CATALOG, "scale_service", action)
     return state
+
+
+async def test_two_approved_changes_to_one_target_never_run_together(world, monkeypatch):
+    """Two incidents, two approved proposals, same target: only the first one executes; the
+    second is superseded (retired so the sweep can't retry it) and says why."""
+    superseded = []
+
+    async def supersede(pid):
+        superseded.append(pid)
+
+    monkeypatch.setattr(executor.service, "supersede", supersede)
+
+    await asyncio.gather(executor.run(uuid4()), executor.run(uuid4()))
+
+    assert len(world["executed"]) == 1
+    assert world["events"].count("execution.refused") == 1
+    assert len(superseded) == 1
+    assert not executor._busy_targets, "the target must be released afterwards"
 
 
 async def test_one_fix_resolves_the_other_incidents_it_cured(world):
@@ -171,6 +193,9 @@ async def test_execution_failure_is_recorded_and_does_not_verify(world, monkeypa
 
         def verify_query(self, params):
             return "vector(1)"
+
+        def target(self, params):
+            return "deployment/order-service"
 
     monkeypatch.setattr(executor.actions, "validate", lambda n, p: (Exploding(), p))
 

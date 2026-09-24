@@ -188,7 +188,9 @@ async def _propose(incident_id, block) -> dict:
         return _tool_result(
             block.id,
             json.dumps({
-                "status": "identical fix is already awaiting approval — nothing more to propose",
+                "status": "a fix changing the same thing is already awaiting approval "
+                          "— nothing more to propose",
+                "existing_params": exc.proposal["params"],
                 "proposal_id": str(exc.proposal["id"]),
                 "next": "Stop investigating. Call submit_finding now with the evidence you have.",
             }),
