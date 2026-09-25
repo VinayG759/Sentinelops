@@ -244,3 +244,150 @@ async def watch_change_approvals() -> None:
                     pass  # decided in SentinelOps meanwhile, or expired
         except Exception:
             log.exception("freshservice approval watch failed")
+
+
+# --- Closing the loop: what happened after the change was approved -----------------------
+
+CHANGE_CLOSED = 6  # Freshservice change status
+TICKET_RESOLVED, TICKET_CLOSED = 4, 5
+
+
+async def _records_for(event: events.Event) -> tuple[int | None, int | None]:
+    """(ticket id, change id) mirroring the event's incident and proposal, if any."""
+    incident = await incidents.get_incident(event["incident_id"]) if event["incident_id"] else None
+    proposal_id = (event["payload"] or {}).get("proposal_id")
+    proposal = await remediation.get_proposal(proposal_id) if proposal_id else None
+    return (incident or {}).get("fs_ticket_id"), (proposal or {}).get("fs_change_id")
+
+
+async def _note_both(event: events.Event, step: str, body: str, close_change: bool = False):
+    if not client.configured():
+        return
+    ticket_id, change_id = await _records_for(event)
+    try:
+        if ticket_id:
+            await client.add_note(ticket_id, body)
+        if change_id:
+            await client.request("POST", f"/changes/{change_id}/notes", {"body": body})
+            if close_change:
+                await client.request("PUT", f"/changes/{change_id}", {"status": CHANGE_CLOSED})
+    except client.FreshserviceError as exc:
+        await events.emit("integration.failed", "system",
+                          {"integration": "freshservice", "step": step, "error": str(exc)},
+                          event["incident_id"])
+
+
+def _when(event: events.Event) -> str:
+    created = event.get("created_at")
+    return created.strftime("%H:%M:%S UTC") if isinstance(created, dt.datetime) else "now"
+
+
+@events.on("execution.succeeded")
+async def note_applied(event: events.Event) -> None:
+    before = html.escape(str((event["payload"] or {}).get("before", "")))
+    await _note_both(event, "note_applied",
+                     f"<p><b>Change applied</b> at {_when(event)} (state before: "
+                     f"<code>{before}</code>). Verifying recovery for up to 2 minutes&hellip;</p>")
+
+
+@events.on("verification.passed")
+async def note_verified(event: events.Event) -> None:
+    await _note_both(event, "close_change",
+                     f"<p><b>Recovery verified</b> at {_when(event)}: the error rate is back "
+                     "below 2%. Change closed by SentinelOps.</p>", close_change=True)
+
+
+@events.on("rollback.succeeded")
+async def note_rolled_back(event: events.Event) -> None:
+    await _note_both(event, "note_rollback",
+                     "<p><b>The change did not restore service and was rolled back "
+                     f"automatically</b> at {_when(event)}. The outage is still open; "
+                     "SentinelOps keeps investigating.</p>")
+
+
+@events.on("execution.failed")
+async def note_failed(event: events.Event) -> None:
+    error = html.escape(str((event["payload"] or {}).get("error", "")))
+    await _note_both(event, "note_failed",
+                     f"<p><b>Applying the change failed</b>: {error}. Nothing was changed.</p>")
+
+
+@events.on("remediation.rejected")
+async def note_rejected(event: events.Event) -> None:
+    if (event["payload"] or {}).get("source") == "freshservice":
+        return  # decided in Freshservice: it already shows there
+    reason = html.escape(str((event["payload"] or {}).get("reason") or "no reason given"))
+    await _note_both(event, "note_rejected",
+                     f"<p><b>Rejected in SentinelOps</b>: {reason}. Nothing will run.</p>",
+                     close_change=True)
+
+
+def _duration(start: dt.datetime | None, end: dt.datetime | None) -> str:
+    if not start or not end:
+        return "-"
+    s = int((end - start).total_seconds())
+    return f"{s}s" if s < 90 else f"{s // 60}m {s % 60}s"
+
+
+async def resolution_summary(on_ticket: list[dict]) -> str:
+    """Root cause, fix, approver and timings, from the event log of the ticket's incidents."""
+    esc = lambda v: html.escape(str(v))  # noqa: E731
+    evs = [e for row in on_ticket for e in await incidents.incident_events(row["id"])]
+    first = lambda t: next((e for e in evs if e["type"] == t), None)  # noqa: E731
+    opened, found = first("incident.opened"), first("investigation.completed")
+    proposed, approved = first("remediation.proposed"), first("remediation.approved")
+    applied, verified = first("execution.succeeded"), first("verification.passed")
+    t0 = opened["created_at"] if opened else None
+    at = lambda e: e["created_at"] if e else None  # noqa: E731
+    rows = "".join([
+        _row("Root cause", esc(found["payload"].get("hypothesis")) if found else "-"),
+        _row("Fix", esc(proposed["payload"].get("title")) + " (" + esc(", ".join(
+            f"{k}={v}" for k, v in (proposed["payload"].get("params") or {}).items())) + ")"
+             if proposed else "-"),
+        _row("Approved by", esc(approved["actor"].replace("user:", "SentinelOps user ")
+                                .replace("freshservice:", "") + (
+            " (in Freshservice)" if approved["payload"].get("source") == "freshservice"
+            else " (in SentinelOps)")) if approved else "-"),
+        _row("Services", esc(", ".join(sorted({r["service"] for r in on_ticket})))),
+        _row("Timeline", " &middot; ".join([
+            f"root cause in {_duration(t0, at(found))}",
+            f"approved at +{_duration(t0, at(approved))}",
+            f"applied at +{_duration(t0, at(applied))}",
+            f"verified at +{_duration(t0, at(verified))}",
+        ])),
+    ])
+    return ("<p><b>Resolved by SentinelOps AI</b> &mdash; the approved change was applied "
+            "and recovery verified from live metrics.</p>" f"<table>{rows}</table>")
+
+
+@events.on("incident.resolved")
+async def resolve_ticket(event: events.Event) -> None:
+    """Resolve the ticket once every incident grouped on it is resolved."""
+    if not client.configured():
+        return
+    incident = await incidents.get_incident(event["incident_id"])
+    ticket_id = (incident or {}).get("fs_ticket_id")
+    if not ticket_id:
+        return
+    try:
+        async with _ticket_lock:  # sibling incidents resolve in the same second
+            on_ticket = await incidents.incidents_on_ticket(ticket_id)
+            open_ids = [r for r in on_ticket if r["id"] != incident["id"]]
+            still_open = [r for r in open_ids if (await incidents.get_incident(r["id"]))
+                          ["status"] != "resolved"]
+            if still_open:
+                return
+            status = (await client.request("GET", f"/tickets/{ticket_id}"))["ticket"]["status"]
+            if status in (TICKET_RESOLVED, TICKET_CLOSED):
+                return
+            await client.add_note(ticket_id, await resolution_summary(on_ticket))
+            await client.update_ticket(ticket_id, {"status": TICKET_RESOLVED})
+    except client.FreshserviceError as exc:
+        await events.emit("integration.failed", "system",
+                          {"integration": "freshservice", "step": "resolve_ticket",
+                           "error": str(exc)}, event["incident_id"])
+        return
+    await events.emit("integration.synced", "system",
+                      {"integration": "freshservice", "step": "resolve_ticket",
+                       "ticket_id": ticket_id, "url": client.ticket_url(ticket_id)},
+                      event["incident_id"])
