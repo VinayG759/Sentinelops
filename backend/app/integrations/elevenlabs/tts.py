@@ -36,7 +36,7 @@ async def synthesize(text: str) -> str | None:
     s = get_settings()
     voice = s.elevenlabs_voice_id.strip() or DEFAULT_VOICE_ID  # an empty .env line = default
     key = hashlib.sha256(f"{voice}|{s.elevenlabs_model}|{text}".encode())
-    key = key.hexdigest()[:32]
+    key = key.hexdigest()[:32] + ".mp3"
     if key in _cache:
         return key
     try:

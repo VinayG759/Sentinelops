@@ -131,17 +131,19 @@ async def _voice(text: str) -> str:
     <Speak> it with the telephony voice if neither is available in time."""
     key = await sarvam.synthesize(text) or await tts.synthesize(text)
     if key:
-        return f"<Play>{client.webhook_base()}/audio/{key}.mp3</Play>"
+        return f"<Play>{client.webhook_base()}/audio/{key}</Play>"
     return f"<Speak {VOICE}>{escape(text)}</Speak>"
 
 
-@router.get("/audio/{key}.mp3")
+@router.get("/audio/{key}")
 async def audio(secret: str, key: str) -> Response:
+    """Serve a cached recording; the key carries its format (.wav from Sarvam, .mp3 from
+    ElevenLabs)."""
     _check(secret)
     data = sarvam.cached(key) or tts.cached(key)
     if data is None:
         raise HTTPException(404)
-    return Response(data, media_type="audio/mpeg")
+    return Response(data, media_type="audio/wav" if key.endswith(".wav") else "audio/mpeg")
 
 
 @router.post("/gather/{proposal_id}")

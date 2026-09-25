@@ -33,7 +33,7 @@ async def synthesize(text: str) -> str | None:
         return None
     s = get_settings()
     speaker = s.sarvam_speaker.strip() or "priya"
-    key = hashlib.sha256(f"sarvam|{speaker}|{text}".encode()).hexdigest()[:32]
+    key = hashlib.sha256(f"sarvam|{speaker}|wav8k|{text}".encode()).hexdigest()[:32] + ".wav"
     if key in _cache:
         return key
     try:
@@ -42,8 +42,10 @@ async def synthesize(text: str) -> str | None:
                 URL,
                 headers={"api-subscription-key": s.sarvam_api_key.strip()},
                 json={"text": text, "language_code": "en-IN", "model": "bulbul:v3",
-                      "speaker": speaker, "output_audio_codec": "mp3",
-                      "speech_sample_rate": 22050},
+                      # Phone-native: 8 kHz 16-bit WAV, so the telephony side plays it
+                      # without transcoding (22 kHz MP3 played with audible breaks).
+                      "speaker": speaker, "output_audio_codec": "wav",
+                      "speech_sample_rate": 8000},
             )
         resp.raise_for_status()
         audio = base64.b64decode(resp.json()["audios"][0])

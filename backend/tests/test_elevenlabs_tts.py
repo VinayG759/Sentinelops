@@ -50,8 +50,8 @@ def test_call_plays_elevenlabs_audio_and_serves_it(monkeypatch):
     monkeypatch.setattr(s, "public_api_url", "https://t.example")
 
     async def fake_synth(text):
-        tts._cache["abc"] = b"ID3mp3"
-        return "abc"
+        tts._cache["abc.mp3"] = b"ID3mp3"
+        return "abc.mp3"
 
     async def script(pid):
         return "SentinelOps alert."
@@ -71,7 +71,7 @@ def test_call_plays_elevenlabs_audio_and_serves_it(monkeypatch):
 
 
 @respx.mock
-async def test_sarvam_is_tried_first_and_its_mp3_is_served(monkeypatch):
+async def test_sarvam_is_tried_first_as_phone_native_wav(monkeypatch):
     import base64
 
     from app.integrations.sarvam import tts as sarvam
@@ -84,8 +84,10 @@ async def test_sarvam_is_tried_first_and_its_mp3_is_served(monkeypatch):
     assert "<Play>" in xml and route.called
     body = route.calls.last.request.content
     assert b'"language_code":"en-IN"' in body.replace(b" ", b"")
-    key = xml.split("/audio/")[1].split(".mp3")[0]
-    assert sarvam.cached(key) == b"\xff\xf3mp3"
+    assert b'"speech_sample_rate":8000' in body.replace(b" ", b"")
+    assert b'"output_audio_codec":"wav"' in body.replace(b" ", b"")
+    key = xml.split("/audio/")[1].split("</Play>")[0]
+    assert key.endswith(".wav") and sarvam.cached(key) == b"\xff\xf3mp3"
 
 
 @respx.mock
