@@ -27,7 +27,8 @@ from app.integrations.vobiz import client
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vobiz/{secret}", include_in_schema=False)
 
-VOICE = 'voice="woman" language="en-US"'
+# Vobiz accepts exactly WOMAN or MAN (upper case); anything else is 'Invalid Answer XML'.
+VOICE = 'voice="WOMAN" language="en-US"'
 
 # At most one call per window: a big outage proposes many fixes, but the engineer needs one
 # call that summarises everything open, not one call per fix.

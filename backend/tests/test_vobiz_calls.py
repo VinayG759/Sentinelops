@@ -114,3 +114,21 @@ async def test_one_call_per_window_and_none_once_acknowledged(monkeypatch):
     open_triggered.clear()
     await calls.call_oncall({"incident_id": "i9", "payload": {"proposal_id": "9"}})
     assert len(placed) == 1
+
+
+def test_answer_xml_uses_only_values_vobiz_accepts(world):
+    """25 Sep: voice="woman" made Vobiz hang up with 'Invalid Answer XML' (8011)."""
+    import re
+    from xml.etree import ElementTree
+
+    client, _ = world
+    xml = client.post(f"/api/vobiz/{SECRET}/answer/{PID}").text
+    root = ElementTree.fromstring(xml.encode())
+    assert root.tag == "Response"
+    for speak in root.iter("Speak"):
+        assert speak.get("voice") in ("WOMAN", "MAN")
+        assert re.fullmatch(r"[a-z]{2}-[A-Z]{2}", speak.get("language"))
+    gather = root.find("Gather")
+    assert gather.get("inputType") in ("dtmf", "speech", "dtmf speech")
+    assert 5 <= int(gather.get("executionTimeout")) <= 60
+    assert 1 <= int(gather.get("numDigits")) <= 32
