@@ -6,12 +6,14 @@ timeline; a successful one as `integration.synced`.
 """
 
 import asyncio
+import datetime as dt
 import html
 import logging
 
 from app.core import events
 from app.core.config import get_settings
 from app.features.incidents import service as incidents
+from app.features.remediation import service as remediation
 from app.integrations.freshservice import client
 
 log = logging.getLogger(__name__)
@@ -99,3 +101,76 @@ async def _join_ticket(ticket_id: int, payload: dict, incident_id) -> None:
         "subject": f"[SentinelOps] Outage: {', '.join(services)} failing",
         "priority": priority,
     })
+
+
+# Freshservice change risk: 1 Low, 2 Medium, 3 High, 4 Very High.
+RISK = {"low": 1, "medium": 2, "high": 3}
+
+
+def _iso(t: dt.datetime) -> str:
+    return t.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def change_description(p: dict, incident_id, ticket_id: int | None) -> str:
+    esc = lambda v: html.escape(str(v))  # noqa: E731
+    changes = (p.get("preview") or {}).get("changes") or []
+    diff = "".join(
+        f"<li><code>{esc(c.get('field'))}</code>: {esc(c.get('from'))} &rarr; "
+        f"<b>{esc(c.get('to'))}</b></li>" for c in changes
+    ) or f"<li>{esc((p.get('preview') or {}).get('summary', 'see SentinelOps'))}</li>"
+    reasons = "".join(f"<li>{esc(r)}</li>" for r in p.get("policy_reasons") or [])
+    ticket = f" (ticket #{ticket_id})" if ticket_id else ""
+    return (
+        f"<p>Proposed by <b>SentinelOps AI</b> to fix an ongoing outage{ticket}. "
+        "The AI can only choose from a fixed catalog of safe actions; SentinelOps validated "
+        "this one against its allow-list and policy.</p>"
+        f"<h3>Why</h3><p>{esc(p.get('rationale', ''))}</p>"
+        f"<h3>What will change</h3><ul>{diff}</ul>"
+        f"<h3>Risk</h3><p>{esc(p.get('risk'))} risk &middot; "
+        f"{esc(p.get('approvals_required'))} approval(s) required</p><ul>{reasons}</ul>"
+        f"<h3>Affected services</h3><p>{esc(', '.join(p.get('affected_services') or []))}</p>"
+        f"<h3>How success is checked</h3><p>For up to 2 minutes after the change: "
+        f"<code>{esc(p.get('verify_query', ''))}</code></p>"
+        f"<h3>How it is undone</h3><p>{esc(p.get('rollback_plan', ''))} "
+        "&mdash; automatically, if the check fails.</p>"
+        "<h3>Approve here</h3><p>Approve or reject this change in Freshservice. SentinelOps "
+        "applies it within about 15 seconds of approval, re-checking its safety rules first "
+        "(kill switch, allow-list), then verifies recovery.</p>"
+        f"<p>Investigate in SentinelOps: {_incident_link(incident_id)}</p>"
+    )
+
+
+@events.on("remediation.proposed")
+async def change_for_proposal(event: events.Event) -> None:
+    if not client.configured():
+        return
+    incident_id, p = event["incident_id"], event["payload"]
+    incident = await incidents.get_incident(incident_id)
+    ticket_id = incident.get("fs_ticket_id") if incident else None
+    params = ", ".join(f"{k}={v}" for k, v in (p.get("params") or {}).items())
+    now = dt.datetime.now(dt.UTC)
+    try:
+        change_id = await client.create_change(
+            subject=f"[SentinelOps] {p.get('title', p.get('action'))}: {params}",
+            description_html=change_description(p, incident_id, ticket_id),
+            risk=RISK.get(p.get("risk"), 2),
+            priority=PRIORITY.get(incident["severity"], 2) if incident else 3,
+            planned_start=_iso(now + dt.timedelta(minutes=1)),
+            planned_end=_iso(now + dt.timedelta(minutes=31)),
+        )
+        await remediation.set_fs_change(p["proposal_id"], change_id)
+        if ticket_id:
+            await client.add_note(ticket_id, (
+                f"<p><b>Fix proposed:</b> {html.escape(str(p.get('title')))} "
+                f"({html.escape(params)})"
+                f" &mdash; change <a href=\"{client.change_url(change_id)}\">#CHN-{change_id}</a>"
+                " is awaiting approval. Nothing runs until it is approved.</p>"
+            ))
+    except client.FreshserviceError as exc:
+        await events.emit("integration.failed", "system",
+                          {"integration": "freshservice", "step": "create_change",
+                           "error": str(exc)}, incident_id)
+        return
+    await events.emit("integration.synced", "system",
+                      {"integration": "freshservice", "step": "create_change",
+                       "change_id": change_id, "url": client.change_url(change_id)}, incident_id)

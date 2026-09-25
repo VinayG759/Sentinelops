@@ -96,6 +96,35 @@ async def add_note(ticket_id: int, body_html: str, private: bool = True) -> None
     await request("POST", f"/tickets/{ticket_id}/notes", {"body": body_html, "private": private})
 
 
+def change_url(change_id: int) -> str:
+    return f"https://{get_settings().freshservice_domain}/a/changes/{change_id}"
+
+
+async def create_change(subject: str, description_html: str, risk: int, priority: int,
+                        planned_start: str, planned_end: str) -> int:
+    """Raise a change (type Emergency: it fixes a live outage). Approval is requested by a
+    Freshservice workflow rule on '[SentinelOps]' changes; the API cannot request one."""
+    body = {
+        "subject": subject,
+        "description": description_html,
+        "email": await requester_email(),
+        "priority": priority,
+        "impact": priority if priority < 4 else 3,
+        "risk": risk,
+        "change_type": 4,  # Emergency
+        "status": 1,  # Open
+        "planned_start_date": planned_start,
+        "planned_end_date": planned_end,
+    }
+    if (ws := await workspace_id()) is not None:
+        body["workspace_id"] = ws
+    return (await request("POST", "/changes", body))["change"]["id"]
+
+
+async def change_approvals(change_id: int) -> list[dict]:
+    return (await request("GET", f"/changes/{change_id}/approvals"))["approvals"]
+
+
 SOURCE_ALERTS = 14  # Freshservice ticket source for monitoring-raised tickets
 
 

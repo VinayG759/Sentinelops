@@ -84,3 +84,17 @@ def test_ticket_description_escapes_and_links_back():
     assert "52.0%" in html and "5%" in html
     assert "a &lt; b" in html, "PromQL must be HTML-escaped"
     assert "/incidents/abc" in html
+
+
+def test_change_description_shows_the_diff_risk_rollback_and_escapes():
+    html = sync.change_description({
+        "rationale": "port <5433> is wrong",
+        "preview": {"changes": [{"field": "spec.ports[0].port", "from": 5433, "to": 5432}]},
+        "risk": "medium", "approvals_required": 1, "policy_reasons": ["touches a Service"],
+        "affected_services": ["order-service", "payment-service"],
+        "verify_query": "x < bool 0.02", "rollback_plan": "Put the port back",
+    }, "inc-1", 89)
+    assert "5433 &rarr; <b>5432</b>" in html
+    assert "port &lt;5433&gt; is wrong" in html, "AI text must be escaped"
+    assert "ticket #89" in html and "Put the port back" in html and "/incidents/inc-1" in html
+    assert sync.RISK == {"low": 1, "medium": 2, "high": 3}

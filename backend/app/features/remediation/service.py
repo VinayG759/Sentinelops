@@ -128,6 +128,25 @@ async def get_proposal(proposal_id: UUID) -> dict | None:
         return await cur.fetchone()
 
 
+async def set_fs_change(proposal_id: UUID, change_id: int) -> None:
+    """Remember the Freshservice change that mirrors this proposal."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "update public.proposals set fs_change_id = %s where id = %s", (change_id, proposal_id)
+        )
+
+
+async def pending_with_fs_change() -> list[dict]:
+    """Proposals still waiting for a human that have a Freshservice change to watch."""
+    async with get_pool().connection() as conn:
+        return await (
+            await conn.execute(
+                f"select {PROPOSAL_COLUMNS} from public.proposals "
+                "where status = 'pending' and expires_at > now() and fs_change_id is not null"
+            )
+        ).fetchall()
+
+
 async def decide_proposal(proposal_id: UUID, decision: str, user_id: str, reason: str) -> dict:
     """Approve or reject, atomically. Raises ValueError if it was already decided or expired.
 
