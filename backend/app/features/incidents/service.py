@@ -164,6 +164,32 @@ async def incident_stats(minutes: int) -> dict:
     return {"minutes": minutes, **row}
 
 
+async def open_ticket_for_outage(exclude_id, window_seconds: int) -> dict | None:
+    """An open incident with a Freshservice ticket, opened within the window: one outage
+    usually opens an incident per affected service within seconds of each other."""
+    async with get_pool().connection() as conn:
+        return await (
+            await conn.execute(
+                "select id, service, severity, fs_ticket_id from public.incidents "
+                "where fs_ticket_id is not null and status <> 'resolved' and id <> %s "
+                "and opened_at > now() - make_interval(secs => %s) "
+                "order by opened_at limit 1",
+                (exclude_id, window_seconds),
+            )
+        ).fetchone()
+
+
+async def incidents_on_ticket(ticket_id: int) -> list[dict]:
+    async with get_pool().connection() as conn:
+        return await (
+            await conn.execute(
+                "select id, service, severity from public.incidents where fs_ticket_id = %s "
+                "order by opened_at",
+                (ticket_id,),
+            )
+        ).fetchall()
+
+
 async def set_fs_ticket(incident_id, ticket_id: int) -> None:
     """Remember the Freshservice ticket that mirrors this incident."""
     async with get_pool().connection() as conn:

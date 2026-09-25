@@ -88,6 +88,14 @@ async def workspace_id() -> int | None:
     return _workspace_id
 
 
+async def update_ticket(ticket_id: int, fields: dict) -> None:
+    await request("PUT", f"/tickets/{ticket_id}", fields)
+
+
+async def add_note(ticket_id: int, body_html: str, private: bool = True) -> None:
+    await request("POST", f"/tickets/{ticket_id}/notes", {"body": body_html, "private": private})
+
+
 SOURCE_ALERTS = 14  # Freshservice ticket source for monitoring-raised tickets
 
 

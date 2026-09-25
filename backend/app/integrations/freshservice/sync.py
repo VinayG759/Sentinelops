@@ -5,6 +5,7 @@ the incident loop. A failed sync is recorded as `integration.failed` on the inci
 timeline; a successful one as `integration.synced`.
 """
 
+import asyncio
 import html
 import logging
 
@@ -17,6 +18,13 @@ log = logging.getLogger(__name__)
 
 # Freshservice priority: 1 Low, 2 Medium, 3 High, 4 Urgent.
 PRIORITY = {"sev1": 4, "sev2": 3, "sev3": 2}
+
+# Incidents opened this close together share one ticket: one outage, one ticket.
+OUTAGE_WINDOW_SECONDS = 120
+
+# Sibling incidents open within the same second; without this, both would look for a
+# ticket, find none, and each create one.
+_ticket_lock = asyncio.Lock()
 
 
 def _incident_link(incident_id) -> str:
@@ -49,17 +57,45 @@ async def ticket_for_incident(event: events.Event) -> None:
         return
     incident_id, payload = event["incident_id"], event["payload"]
     try:
-        ticket_id = await client.create_ticket(
-            subject=f"[SentinelOps] {payload.get('title', 'Incident')}",
-            description_html=ticket_description(payload, incident_id),
-            priority=PRIORITY.get(payload.get("severity"), 2),
-        )
+        async with _ticket_lock:
+            existing = await incidents.open_ticket_for_outage(incident_id, OUTAGE_WINDOW_SECONDS)
+            if existing:
+                ticket_id, step = existing["fs_ticket_id"], "joined_ticket"
+                await incidents.set_fs_ticket(incident_id, ticket_id)
+                await _join_ticket(ticket_id, payload, incident_id)
+            else:
+                ticket_id, step = await client.create_ticket(
+                    subject=f"[SentinelOps] {payload.get('title', 'Incident')}",
+                    description_html=ticket_description(payload, incident_id),
+                    priority=PRIORITY.get(payload.get("severity"), 2),
+                ), "create_ticket"
+                await incidents.set_fs_ticket(incident_id, ticket_id)
     except client.FreshserviceError as exc:
         await events.emit("integration.failed", "system",
-                          {"integration": "freshservice", "step": "create_ticket",
+                          {"integration": "freshservice", "step": "ticket",
                            "error": str(exc)}, incident_id)
         return
-    await incidents.set_fs_ticket(incident_id, ticket_id)
     await events.emit("integration.synced", "system",
-                      {"integration": "freshservice", "step": "create_ticket",
+                      {"integration": "freshservice", "step": step,
                        "ticket_id": ticket_id, "url": client.ticket_url(ticket_id)}, incident_id)
+
+
+async def _join_ticket(ticket_id: int, payload: dict, incident_id) -> None:
+    """A second service failing in the same outage: note it on the outage's ticket, name
+    every affected service in the subject, and raise the priority if this one is worse."""
+    ratio = payload.get("error_ratio")
+    await client.add_note(ticket_id, (
+        f"<p><b>Also affected: {html.escape(str(payload.get('service')))}</b>"
+        + (f" — {ratio:.0%} of requests failing" if ratio is not None else "")
+        + ". Grouped into this ticket because it opened within "
+        f"{OUTAGE_WINDOW_SECONDS // 60} minutes of the first incident (correlated by time; "
+        "the investigation confirms whether the cause is shared).</p>"
+        f"<p>{_incident_link(incident_id)}</p>"
+    ))
+    on_ticket = await incidents.incidents_on_ticket(ticket_id)
+    services = sorted({row["service"] for row in on_ticket})
+    priority = max(PRIORITY.get(row["severity"], 2) for row in on_ticket)
+    await client.update_ticket(ticket_id, {
+        "subject": f"[SentinelOps] Outage: {', '.join(services)} failing",
+        "priority": priority,
+    })
