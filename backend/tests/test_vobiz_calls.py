@@ -84,7 +84,7 @@ def test_pressing_2_repeats_and_nothing_else_changes_anything(world):
     assert state["transitions"] == []
 
 
-async def test_one_call_per_cooldown_window(monkeypatch):
+async def test_one_call_per_window_and_none_once_acknowledged(monkeypatch):
     placed = []
 
     async def place_call(to, answer_url, hangup_url):
@@ -99,6 +99,18 @@ async def test_one_call_per_cooldown_window(monkeypatch):
     monkeypatch.setattr(calls.client, "place_call", place_call)
     monkeypatch.setattr(calls.events, "emit", emit)
     monkeypatch.setattr(calls, "_last_call_at", None)
+    open_triggered = [{"id": "i1", "service": "order-service"}]
+
+    async def list_incidents(status):
+        return open_triggered if status == "triggered" else []
+
+    monkeypatch.setattr(calls.incidents, "list_incidents", list_incidents)
     for n in range(5):  # a big outage proposes several fixes in quick succession
         await calls.call_oncall({"incident_id": f"i{n}", "payload": {"proposal_id": str(n)}})
+    assert len(placed) == 1
+
+    # Past the window, but everything open is acknowledged: nobody is paged again.
+    monkeypatch.setattr(calls, "_last_call_at", None)
+    open_triggered.clear()
+    await calls.call_oncall({"incident_id": "i9", "payload": {"proposal_id": "9"}})
     assert len(placed) == 1

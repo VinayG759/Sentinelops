@@ -44,6 +44,8 @@ async def call_oncall(event: events.Event) -> None:
     now = time.monotonic()
     if _last_call_at is not None and now - _last_call_at < CALL_COOLDOWN_SECONDS:
         return  # a recent call already covers this: its script is built when answered
+    if not await incidents.list_incidents("triggered"):
+        return  # everything open is already acknowledged: someone owns it, don't page again
     _last_call_at = now
     proposal_id = event["payload"]["proposal_id"]
     base = client.webhook_base()
