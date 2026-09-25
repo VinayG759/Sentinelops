@@ -13,6 +13,7 @@ import logging
 from app.core import events
 from app.core.config import get_settings
 from app.features.incidents import service as incidents
+from app.features.remediation import actions
 from app.features.remediation import service as remediation
 from app.integrations.freshservice import client
 
@@ -111,32 +112,59 @@ def _iso(t: dt.datetime) -> str:
     return t.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def change_description(p: dict, incident_id, ticket_id: int | None) -> str:
-    esc = lambda v: html.escape(str(v))  # noqa: E731
-    changes = (p.get("preview") or {}).get("changes") or []
-    diff = "".join(
-        f"<li><code>{esc(c.get('field'))}</code>: {esc(c.get('from'))} &rarr; "
-        f"<b>{esc(c.get('to'))}</b></li>" for c in changes
-    ) or f"<li>{esc((p.get('preview') or {}).get('summary', 'see SentinelOps'))}</li>"
-    reasons = "".join(f"<li>{esc(r)}</li>" for r in p.get("policy_reasons") or [])
-    ticket = f" (ticket #{ticket_id})" if ticket_id else ""
+def _row(label: str, value_html: str) -> str:
     return (
-        f"<p>Proposed by <b>SentinelOps AI</b> to fix an ongoing outage{ticket}. "
-        "The AI can only choose from a fixed catalog of safe actions; SentinelOps validated "
-        "this one against its allow-list and policy.</p>"
-        f"<h3>Why</h3><p>{esc(p.get('rationale', ''))}</p>"
-        f"<h3>What will change</h3><ul>{diff}</ul>"
-        f"<h3>Risk</h3><p>{esc(p.get('risk'))} risk &middot; "
-        f"{esc(p.get('approvals_required'))} approval(s) required</p><ul>{reasons}</ul>"
-        f"<h3>Affected services</h3><p>{esc(', '.join(p.get('affected_services') or []))}</p>"
-        f"<h3>How success is checked</h3><p>For up to 2 minutes after the change: "
-        f"<code>{esc(p.get('verify_query', ''))}</code></p>"
-        f"<h3>How it is undone</h3><p>{esc(p.get('rollback_plan', ''))} "
-        "&mdash; automatically, if the check fails.</p>"
-        "<h3>Approve here</h3><p>Approve or reject this change in Freshservice. SentinelOps "
-        "applies it within about 15 seconds of approval, re-checking its safety rules first "
-        "(kill switch, allow-list), then verifies recovery.</p>"
-        f"<p>Investigate in SentinelOps: {_incident_link(incident_id)}</p>"
+        '<tr><td style="padding:4px 12px 4px 0;color:#6b7280;white-space:nowrap">'
+        f"{label}</td><td style=\"padding:4px 0\">{value_html}</td></tr>"
+    )
+
+
+def _target(p: dict) -> str | None:
+    try:
+        action, params = actions.validate(p.get("action", ""), p.get("params") or {})
+    except Exception:
+        return None
+    return action.target(params)
+
+
+def change_description(p: dict, incident_id, ticket_id: int | None) -> str:
+    """The change as an approver reads it: a summary table first, the reasoning in plain
+    words, how success is judged, and the technical detail last."""
+    esc = lambda v: html.escape(str(v))  # noqa: E731
+    preview = p.get("preview") or {}
+    diff = "<br>".join(
+        f"<code>{esc(c.get('field'))}</code>: {esc(c.get('from'))} &rarr; "
+        f"<b>{esc(c.get('to'))}</b>" for c in preview.get("changes") or []
+    ) or esc(preview.get("summary") or "see SentinelOps")
+    services = p.get("affected_services") or []
+    risk = str(p.get("risk", "")).capitalize()
+    n = p.get("approvals_required", 1)
+    summary = "".join([
+        _row("Action", f"<b>{esc(p.get('title', p.get('action')))}</b>"),
+        _row("Target", f"<code>{esc(_target(p) or '-')}</code>"),
+        _row("Change", diff),
+        _row("Risk", f"{esc(risk)} &middot; {esc(n)} approval{'s' if n != 1 else ''} needed"),
+        _row("Affects", esc(", ".join(services) or "-")),
+        _row("If it fails", "Automatically undone: " + esc(p.get("rollback_plan", ""))),
+    ])
+    who = " and ".join(services) or "the affected services"
+    reasons = "; ".join(p.get("policy_reasons") or []) or "-"
+    ticket_link = (f' &middot; <a href="{client.ticket_url(ticket_id)}">Outage ticket '
+                   f"#{ticket_id}</a>") if ticket_id else ""
+    return (
+        "<p><b>SentinelOps AI</b> proposes this fix for an ongoing outage. It could only "
+        "choose from a fixed catalog of safe actions, and SentinelOps has checked it against "
+        "its allow-list and approval policy.</p>"
+        f"<table>{summary}</table>"
+        f"<p><b>Why</b><br>{esc(p.get('rationale', ''))}</p>"
+        f"<p><b>How we will know it worked</b><br>Error rate on {esc(who)} back below 2%, "
+        "checked every 10 seconds for up to 2 minutes after the change.</p>"
+        "<p><b>To approve</b><br>Use Approve / Reject on this change. SentinelOps applies it "
+        "within about 15 seconds of approval, after re-checking its kill switch and "
+        "allow-list, then verifies recovery.</p>"
+        f"<p>Investigate in SentinelOps: {_incident_link(incident_id)}{ticket_link}</p>"
+        '<p style="color:#6b7280;font-size:12px">Technical detail &mdash; verification query: '
+        f"<code>{esc(p.get('verify_query', ''))}</code><br>Policy: {esc(reasons)}</p>"
     )
 
 
