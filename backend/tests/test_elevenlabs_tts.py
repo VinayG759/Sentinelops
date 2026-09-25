@@ -68,3 +68,32 @@ def test_call_plays_elevenlabs_audio_and_serves_it(monkeypatch):
     assert audio.status_code == 200 and audio.content == b"ID3mp3"
     assert audio.headers["content-type"] == "audio/mpeg"
     assert client.get("/api/vobiz/wrong/audio/abc.mp3").status_code == 404
+
+
+@respx.mock
+async def test_sarvam_is_tried_first_and_its_mp3_is_served(monkeypatch):
+    import base64
+
+    from app.integrations.sarvam import tts as sarvam
+
+    monkeypatch.setattr(sarvam.get_settings(), "sarvam_api_key", "sk")
+    monkeypatch.setattr(sarvam, "_cache", {})
+    route = respx.post(sarvam.URL).mock(return_value=httpx.Response(
+        200, json={"audios": [base64.b64encode(b"\xff\xf3mp3").decode()]}))
+    xml = await calls._voice("SentinelOps alert.")
+    assert "<Play>" in xml and route.called
+    body = route.calls.last.request.content
+    assert b'"language_code":"en-IN"' in body.replace(b" ", b"")
+    key = xml.split("/audio/")[1].split(".mp3")[0]
+    assert sarvam.cached(key) == b"\xff\xf3mp3"
+
+
+@respx.mock
+async def test_sarvam_failure_falls_back_to_the_telephony_voice(monkeypatch):
+    from app.integrations.sarvam import tts as sarvam
+
+    monkeypatch.setattr(sarvam.get_settings(), "sarvam_api_key", "sk")
+    monkeypatch.setattr(sarvam.get_settings(), "elevenlabs_api_key", "")
+    monkeypatch.setattr(sarvam, "_cache", {})
+    respx.post(sarvam.URL).mock(return_value=httpx.Response(500))
+    assert (await calls._voice("hi")).startswith("<Speak")

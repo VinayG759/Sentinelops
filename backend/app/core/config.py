@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     vobiz_webhook_secret: str = ""
     # Public https origin of THIS backend (e.g. a Cloudflare tunnel), for Vobiz callbacks.
     public_api_url: str = ""
+    # Sarvam voice for the phone alert (Indian English); tried before ElevenLabs.
+    sarvam_api_key: str = ""
+    sarvam_speaker: str = "priya"  # bulbul:v3 speaker, e.g. priya, anand
     # ElevenLabs voice for the phone alert (empty key = the telephony provider's voice).
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = ""  # empty = ElevenLabs' standard default voice

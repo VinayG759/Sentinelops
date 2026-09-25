@@ -24,6 +24,7 @@ from app.core.config import get_settings
 from app.features.incidents import service as incidents
 from app.features.remediation import service as remediation
 from app.integrations.elevenlabs import tts
+from app.integrations.sarvam import tts as sarvam
 from app.integrations.vobiz import client
 
 log = logging.getLogger(__name__)
@@ -126,8 +127,9 @@ async def answer(secret: str, proposal_id: UUID) -> Response:
 
 
 async def _voice(text: str) -> str:
-    """<Play> an ElevenLabs recording of `text`, or <Speak> it if that is unavailable."""
-    key = await tts.synthesize(text)
+    """<Play> a natural recording of `text` (Sarvam Indian English, else ElevenLabs), or
+    <Speak> it with the telephony voice if neither is available in time."""
+    key = await sarvam.synthesize(text) or await tts.synthesize(text)
     if key:
         return f"<Play>{client.webhook_base()}/audio/{key}.mp3</Play>"
     return f"<Speak {VOICE}>{escape(text)}</Speak>"
@@ -136,7 +138,7 @@ async def _voice(text: str) -> str:
 @router.get("/audio/{key}.mp3")
 async def audio(secret: str, key: str) -> Response:
     _check(secret)
-    data = tts.cached(key)
+    data = sarvam.cached(key) or tts.cached(key)
     if data is None:
         raise HTTPException(404)
     return Response(data, media_type="audio/mpeg")
