@@ -147,6 +147,8 @@ and the `v0-pre-event` tag mark the boundary.
 | Investigation agent with evidence-backed findings | |
 | Safety core: action catalog, policy, enforced approval, executor, verification, rollback, kill switch | |
 | Dark "command centre" UI: overview, incidents, incident detail, approvals, simulator, ⌘K palette | |
+| Observability views: global time range, per-service charts (error rate, p95) with incident markers, outcome tiles (time to root cause / resolve), filterable incidents table with root cause, service side panel (metrics, DB connection pool, logs) | |
+| Hardening from live runs: parallel in-pod probes no longer corrupt the shared Kubernetes client; one outage → one fix (proposals merged by target, never two changes to one target at once); clean timestamped logs for the agent | |
 
 The monitored demo services in `services/` were first written for an earlier prototype
 and adapted here; they are the system being watched, not the product.
