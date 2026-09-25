@@ -29,6 +29,14 @@ async def test_synthesize_caches_the_audio_so_repeats_are_free():
 
 
 @respx.mock
+async def test_an_empty_voice_line_uses_the_default_voice(monkeypatch):
+    monkeypatch.setattr(tts.get_settings(), "elevenlabs_voice_id", "")
+    route = respx.post(f"https://api.elevenlabs.io/v1/text-to-speech/{tts.DEFAULT_VOICE_ID}").mock(
+        return_value=httpx.Response(200, content=b"ID3"))
+    assert await tts.synthesize("hi") and route.called
+
+
+@respx.mock
 async def test_any_failure_returns_none_so_the_call_falls_back():
     respx.post(URL).mock(return_value=httpx.Response(401, json={"detail": "bad key"}))
     assert await tts.synthesize("hello") is None

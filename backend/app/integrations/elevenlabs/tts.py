@@ -15,6 +15,7 @@ from app.core.config import get_settings
 
 log = logging.getLogger(__name__)
 
+DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # a standard ElevenLabs voice
 TIMEOUT_SECONDS = 4  # Vobiz waits 10s for the answer XML; leave room for the rest
 MAX_CACHED = 64
 _cache: dict[str, bytes] = {}
@@ -33,16 +34,17 @@ async def synthesize(text: str) -> str | None:
     if not configured():
         return None
     s = get_settings()
-    key = hashlib.sha256(f"{s.elevenlabs_voice_id}|{s.elevenlabs_model}|{text}".encode())
+    voice = s.elevenlabs_voice_id.strip() or DEFAULT_VOICE_ID  # an empty .env line = default
+    key = hashlib.sha256(f"{voice}|{s.elevenlabs_model}|{text}".encode())
     key = key.hexdigest()[:32]
     if key in _cache:
         return key
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT_SECONDS) as http:
             resp = await http.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{s.elevenlabs_voice_id}",
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
                 params={"output_format": "mp3_22050_32"},
-                headers={"xi-api-key": s.elevenlabs_api_key},
+                headers={"xi-api-key": s.elevenlabs_api_key.strip()},
                 json={"text": text, "model_id": s.elevenlabs_model},
             )
         resp.raise_for_status()
