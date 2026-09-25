@@ -21,6 +21,9 @@ from app.features.remediation import executor
 from app.features.remediation.router import router as remediation_router
 from app.features.simulator.router import router as simulator_router
 from app.features.topology.router import router as topology_router
+from app.integrations.freshservice import (
+    sync as freshservice_sync,  # noqa: F401  (registers subscribers)
+)
 
 
 @asynccontextmanager

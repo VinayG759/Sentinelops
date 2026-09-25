@@ -164,6 +164,14 @@ async def incident_stats(minutes: int) -> dict:
     return {"minutes": minutes, **row}
 
 
+async def set_fs_ticket(incident_id, ticket_id: int) -> None:
+    """Remember the Freshservice ticket that mirrors this incident."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "update public.incidents set fs_ticket_id = %s where id = %s", (ticket_id, incident_id)
+        )
+
+
 # Allowed transitions: to-status -> the statuses it may be reached from.
 # "triggered" is reachable again after a failed fix is rolled back.
 _TRANSITIONS = {

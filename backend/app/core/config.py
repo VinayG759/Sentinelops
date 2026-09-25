@@ -20,6 +20,12 @@ class Settings(BaseSettings):
 
     freshservice_domain: str = ""
     freshservice_api_key: str = ""
+    # Workspace to file records in. Empty = the API key owner's own workspace. In a shared
+    # (multi-team) account, records filed without it land in the default workspace, where
+    # the key's agent may be unable to read or update them.
+    freshservice_workspace_id: int | None = None
+    # Where people open SentinelOps; used for links written into Freshservice records.
+    app_url: str = "http://localhost:5173"
 
     prometheus_url: str = "http://localhost:9090"
     kubeconfig_path: str = "./sentinelops-agent.kubeconfig"
