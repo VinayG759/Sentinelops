@@ -243,6 +243,14 @@ function ChainBadge({ query }: { query: ReturnType<typeof useChainStatus> }) {
                 ? `All ${status.checked} events recomputed and matched, in ${status.took_ms} ms.`
                 : "Recompute every event's hash from its contents and the event before it."}
           </p>
+          {status && !broken && (status.known_exceptions?.length ?? 0) > 0 && (
+            <p className="mt-1 text-[11.5px] text-sev2">
+              Disclosed: events {status.known_exceptions!.map((id) => `#${id}`).join(', ')} have a
+              sequencing fault from concurrent writes, fixed on 25 Sep (migration 0002). Their
+              contents still match their seals; only their link to the neighbouring event is
+              exempt.
+            </p>
+          )}
           {status && (
             <p
               className="mt-1 font-mono text-[10.5px] text-muted-foreground"

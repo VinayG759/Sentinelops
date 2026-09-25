@@ -25,7 +25,8 @@ async def verify_chain() -> dict:
     started = time.perf_counter()
     async with get_pool().connection() as conn:
         cur = await conn.execute(
-            "select valid, checked, first_broken_id from public.verify_event_chain()"
+            "select valid, checked, first_broken_id, known_exceptions "
+            "from public.verify_event_chain()"
         )
         row = await cur.fetchone()
     return {

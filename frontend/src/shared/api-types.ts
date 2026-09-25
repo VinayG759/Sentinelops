@@ -423,6 +423,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/topology/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Detail
+         * @description Everything the service panel shows: current health plus its charts over the range.
+         */
+        get: operations["service_detail_api_topology__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/topology/{name}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Logs
+         * @description The last log lines from one running pod of the service (read-only).
+         */
+        get: operations["service_logs_api_topology__name__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -475,6 +515,11 @@ export interface components {
             checked: number;
             /** First Broken Id */
             first_broken_id: number | null;
+            /**
+             * Known Exceptions
+             * @default []
+             */
+            known_exceptions: number[];
             /**
              * Verified At
              * Format: date-time
@@ -685,6 +730,25 @@ export interface components {
              */
             state: "active" | "inactive" | "unknown";
         };
+        /** ServiceDetail */
+        ServiceDetail: {
+            health: components["schemas"]["ServiceHealth"];
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Step */
+            step: number;
+            /** Series */
+            series: {
+                [key: string]: [
+                    number,
+                    number
+                ][];
+            };
+            /** Pool Max Per Pod */
+            pool_max_per_pod?: number | null;
+        };
         /** ServiceHealth */
         ServiceHealth: {
             /** Name */
@@ -710,6 +774,13 @@ export interface components {
              * @default []
              */
             spark: number[];
+        };
+        /** ServiceLogs */
+        ServiceLogs: {
+            /** Pod */
+            pod: string;
+            /** Lines */
+            lines: string[];
         };
         /** ServiceMetrics */
         ServiceMetrics: {
@@ -1423,6 +1494,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceMetrics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_detail_api_topology__name__get: {
+        parameters: {
+            query?: {
+                minutes?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_logs_api_topology__name__logs_get: {
+        parameters: {
+            query?: {
+                lines?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceLogs"];
                 };
             };
             /** @description Validation Error */
