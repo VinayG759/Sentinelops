@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "test": "node --test \"tests/**/*.test.ts\"",
     "gen:types": "npx --yes openapi-typescript@7 http://localhost:8000/openapi.json -o src/shared/api-types.ts"
   },
   "dependencies": {

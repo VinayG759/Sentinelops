@@ -28,6 +28,7 @@ class ProposalDetail(Proposal):
     title: str
     description: str
     preview: dict[str, Any]
+    target: str
     affected_services: list[str]
     rollback_plan: str
     verify_query: str

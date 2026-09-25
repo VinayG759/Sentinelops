@@ -707,6 +707,8 @@ export interface components {
             preview: {
                 [key: string]: unknown;
             };
+            /** Target */
+            target: string;
             /** Affected Services */
             affected_services: string[];
             /** Rollback Plan */

@@ -241,6 +241,7 @@ async def approval_card(proposal: dict) -> dict:
         "title": action.title,
         "description": action.description,
         "preview": preview,
+        "target": action.target(params),
         "affected_services": action.affected_services(params),
         "rollback_plan": action.rollback_plan(params),
         "verify_query": action.verify_query(params),

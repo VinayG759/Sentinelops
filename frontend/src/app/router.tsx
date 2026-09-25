@@ -8,7 +8,7 @@ import { OverviewPage } from '@/features/overview/OverviewPage'
 import { ApprovalsPage } from '@/features/remediation/ApprovalsPage'
 import { SimulatorPage } from '@/features/simulator/SimulatorPage'
 import { AuditPage } from '@/features/audit/AuditPage'
-import { PagePlaceholder } from '@/shared/PagePlaceholder'
+import { TopologyPage } from '@/features/topology/TopologyPage'
 
 // One route per feature. Adding a feature = add its page here and a nav item in Layout.
 export const router = createBrowserRouter([
@@ -25,7 +25,7 @@ export const router = createBrowserRouter([
       { path: '/incidents', element: <IncidentsPage /> },
       { path: '/incidents/:id', element: <IncidentDetailPage /> },
       { path: '/approvals', element: <ApprovalsPage /> },
-      { path: '/topology', element: <PagePlaceholder title="Topology" arrives="Phase 5" /> },
+      { path: '/topology', element: <TopologyPage /> },
       { path: '/audit', element: <AuditPage /> },
       { path: '/simulator', element: <SimulatorPage /> },
     ],
