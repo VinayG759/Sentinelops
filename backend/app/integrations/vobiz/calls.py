@@ -1,15 +1,17 @@
 """Phone the on-call engineer when a fix is waiting for approval.
 
-A ticket can sit unnoticed; a ringing phone can't. The call reads the situation (what is
-failing, what the AI proposes, which change to approve) and offers: press 1 to acknowledge,
-2 to repeat. Approving stays in Freshservice / SentinelOps, where the approver is logged in:
-anyone can pick up a phone.
+A ticket can sit unnoticed; a ringing phone can't. At most one call per 5 minutes, and it
+summarises everything open when answered (a few services by name, then "and N more"; how
+many fixes await approval, and where), so 100 failing services still mean one short call.
+Press 1 acknowledges what was announced, 2 repeats. Approving stays in Freshservice /
+SentinelOps, where the approver is logged in: anyone can pick up a phone.
 
 Vobiz cannot authenticate to our API, so its webhooks sit under a secret path segment.
 """
 
 import hmac
 import logging
+import time
 from urllib.parse import parse_qs
 from uuid import UUID
 from xml.sax.saxutils import escape
@@ -26,17 +28,24 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vobiz/{secret}", include_in_schema=False)
 
 VOICE = 'voice="woman" language="en-US"'
-_called: set[str] = set()  # one call per proposal, even if the event is seen twice
+
+# At most one call per window: a big outage proposes many fixes, but the engineer needs one
+# call that summarises everything open, not one call per fix.
+CALL_COOLDOWN_SECONDS = 300
+NAMED_SERVICES = 4  # read out by name; beyond this the call says "and N more"
+_last_call_at: float | None = None
 
 
 @events.on("remediation.proposed")
 async def call_oncall(event: events.Event) -> None:
     if not client.configured():
         return
+    global _last_call_at
+    now = time.monotonic()
+    if _last_call_at is not None and now - _last_call_at < CALL_COOLDOWN_SECONDS:
+        return  # a recent call already covers this: its script is built when answered
+    _last_call_at = now
     proposal_id = event["payload"]["proposal_id"]
-    if proposal_id in _called:
-        return
-    _called.add(proposal_id)
     base = client.webhook_base()
     try:
         call_id = await client.place_call(
@@ -64,29 +73,39 @@ def _xml(body: str) -> Response:
                     media_type="application/xml")
 
 
-async def _outage(proposal: dict | None) -> list[dict]:
-    """Every incident in the proposal's outage (grouped by Freshservice ticket if any)."""
-    incident = await incidents.get_incident(proposal["incident_id"]) if proposal else None
-    if not incident:
-        return []
-    if incident.get("fs_ticket_id"):
-        return await incidents.incidents_on_ticket(incident["fs_ticket_id"])
-    return [incident]
+async def _open_incidents() -> list[dict]:
+    return await incidents.list_incidents("triggered") + await incidents.list_incidents(
+        "acknowledged")
+
+
+def spoken_services(names: list[str]) -> str:
+    """'a, b and c' - or, past NAMED_SERVICES, 'a, b, c and 94 more'."""
+    if len(names) <= NAMED_SERVICES:
+        return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    shown = NAMED_SERVICES - 1
+    return ", ".join(names[:shown]) + f" and {len(names) - shown} more"
 
 
 async def script(proposal_id: UUID) -> str:
-    """What the engineer hears, built from live data at the moment they answer."""
-    proposal = await remediation.get_proposal(proposal_id)
-    if proposal is None:
-        return "SentinelOps alert. The proposed fix could not be found."
-    rows = await _outage(proposal)
-    services = sorted({r["service"] for r in rows}) or ["a service"]
-    verb = "are" if len(services) > 1 else "is"
-    change = (f"Change {proposal['fs_change_id']} in Freshservice is waiting for your approval."
-              if proposal.get("fs_change_id") else "A fix is waiting for your approval.")
-    action = proposal["action"].replace("_", " ")
-    return (f"SentinelOps alert. {' and '.join(services)} {verb} failing. "
-            f"The AI has found the cause and proposes a fix: {action}. {change}")
+    """What the engineer hears, built from live data at the moment they answer: everything
+    open right now, however many services, in a call of about twenty seconds."""
+    services = sorted({r["service"] for r in await _open_incidents()})
+    pending = await remediation.list_proposals("pending")
+    if not services:
+        return "SentinelOps alert. The outage has already recovered. No action is needed."
+    count = (f"{len(services)} services are failing, including " if len(services) > NAMED_SERVICES
+             else "")
+    verb = "is" if len(services) == 1 else "are"
+    failing = (f"{count}{spoken_services(services)}." if count
+               else f"{spoken_services(services)} {verb} failing.")
+    if len(pending) == 1 and pending[0].get("fs_change_id"):
+        ask = f"Change {pending[0]['fs_change_id']} in Freshservice is waiting for your approval."
+    elif pending:
+        ask = (f"{len(pending)} fixes are waiting for your approval. "
+               "Review them in Freshservice, under Changes.")
+    else:
+        ask = "The AI is still investigating. Details are in Freshservice."
+    return f"SentinelOps alert. {failing} {ask}"
 
 
 @router.post("/answer/{proposal_id}")
@@ -113,9 +132,10 @@ async def gather(secret: str, proposal_id: UUID, request: Request) -> Response:
                     "</Redirect>")
     if digits != "1":
         return _xml(f"<Speak {VOICE}>Goodbye.</Speak><Hangup/>")
-    for row in await _outage(await remediation.get_proposal(proposal_id)):
+    # Acknowledge exactly what the call announced: everything still untouched.
+    for row in await incidents.list_incidents("triggered"):
         await incidents.transition(row["id"], "acknowledged", "phone:on-call")
-    return _xml(f"<Speak {VOICE}>Acknowledged. Please review the change in Freshservice. "
+    return _xml(f"<Speak {VOICE}>Acknowledged. Please review the changes in Freshservice. "
                 "Goodbye.</Speak><Hangup/>")
 
 

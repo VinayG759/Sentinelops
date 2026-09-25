@@ -9,48 +9,47 @@ from fastapi.testclient import TestClient
 from app.integrations.vobiz import calls
 
 SECRET = "s3cret-path-token"
-PROPOSAL = {"id": uuid4(), "incident_id": "inc-1", "action": "set_service_port",
-            "fs_change_id": 31}
-OUTAGE = [{"id": "inc-1", "service": "order-service"},
-          {"id": "inc-2", "service": "payment-service"}]
+PID = uuid4()
 
 
 @pytest.fixture
-def api(monkeypatch):
+def world(monkeypatch):
     s = calls.get_settings()
     monkeypatch.setattr(s, "vobiz_webhook_secret", SECRET)
     monkeypatch.setattr(s, "public_api_url", "https://tunnel.example")
-    acknowledged = []
+    state = {
+        "triggered": [{"id": "inc-1", "service": "order-service"},
+                      {"id": "inc-2", "service": "payment-service"}],
+        "acknowledged": [],
+        "pending": [{"id": PID, "fs_change_id": 31}],
+        "transitions": [],
+    }
 
-    async def get_proposal(pid):
-        return PROPOSAL
+    async def list_incidents(status):
+        return state.get(status, [])
 
-    async def get_incident(iid):
-        return {"id": iid, "fs_ticket_id": 89}
-
-    async def incidents_on_ticket(tid):
-        return OUTAGE
+    async def list_proposals(status=None):
+        return state["pending"]
 
     async def transition(iid, to, actor):
-        acknowledged.append((iid, to, actor))
+        state["transitions"].append((iid, to, actor))
 
-    monkeypatch.setattr(calls.remediation, "get_proposal", get_proposal)
-    monkeypatch.setattr(calls.incidents, "get_incident", get_incident)
-    monkeypatch.setattr(calls.incidents, "incidents_on_ticket", incidents_on_ticket)
+    monkeypatch.setattr(calls.incidents, "list_incidents", list_incidents)
+    monkeypatch.setattr(calls.remediation, "list_proposals", list_proposals)
     monkeypatch.setattr(calls.incidents, "transition", transition)
     app = FastAPI()
     app.include_router(calls.router)
-    return TestClient(app), acknowledged
+    return TestClient(app), state
 
 
-def test_wrong_secret_is_rejected(api):
-    client, _ = api
-    assert client.post(f"/api/vobiz/wrong/answer/{PROPOSAL['id']}").status_code == 404
+def test_wrong_secret_is_rejected(world):
+    client, _ = world
+    assert client.post(f"/api/vobiz/wrong/answer/{PID}").status_code == 404
 
 
-def test_answer_reads_the_outage_and_offers_the_menu(api):
-    client, _ = api
-    resp = client.post(f"/api/vobiz/{SECRET}/answer/{PROPOSAL['id']}")
+def test_answer_reads_the_outage_and_offers_the_menu(world):
+    client, _ = world
+    resp = client.post(f"/api/vobiz/{SECRET}/answer/{PID}")
     xml = resp.text
     assert resp.status_code == 200 and resp.headers["content-type"].startswith("application/xml")
     assert "order-service and payment-service are failing" in xml
@@ -59,17 +58,47 @@ def test_answer_reads_the_outage_and_offers_the_menu(api):
     assert f"https://tunnel.example/api/vobiz/{SECRET}/gather/" in xml
 
 
-def test_pressing_1_acknowledges_every_incident_of_the_outage(api):
-    client, acknowledged = api
-    resp = client.post(f"/api/vobiz/{SECRET}/gather/{PROPOSAL['id']}", data={"Digits": "1"})
+async def test_a_hundred_failing_services_still_make_one_short_sentence(world):
+    _, state = world
+    state["triggered"] = [{"id": f"i{n}", "service": f"svc-{n:03d}"} for n in range(100)]
+    state["pending"] = [{"id": n, "fs_change_id": n} for n in range(12)]
+    text = await calls.script(PID)
+    assert "100 services are failing, including svc-000, svc-001, svc-002 and 97 more" in text
+    assert "12 fixes are waiting for your approval. Review them in Freshservice" in text
+    assert "svc-050" not in text
+
+
+def test_pressing_1_acknowledges_everything_announced(world):
+    client, state = world
+    resp = client.post(f"/api/vobiz/{SECRET}/gather/{PID}", data={"Digits": "1"})
     assert "Acknowledged" in resp.text and "<Hangup/>" in resp.text
-    assert acknowledged == [("inc-1", "acknowledged", "phone:on-call"),
-                            ("inc-2", "acknowledged", "phone:on-call")]
+    assert state["transitions"] == [("inc-1", "acknowledged", "phone:on-call"),
+                                    ("inc-2", "acknowledged", "phone:on-call")]
 
 
-def test_pressing_2_repeats_and_nothing_else_changes_anything(api):
-    client, acknowledged = api
-    again = client.post(f"/api/vobiz/{SECRET}/gather/{PROPOSAL['id']}", data={"Digits": "2"})
+def test_pressing_2_repeats_and_nothing_else_changes_anything(world):
+    client, state = world
+    again = client.post(f"/api/vobiz/{SECRET}/gather/{PID}", data={"Digits": "2"})
     assert "<Redirect" in again.text and "/answer/" in again.text
-    client.post(f"/api/vobiz/{SECRET}/gather/{PROPOSAL['id']}", data={"Digits": "9"})
-    assert acknowledged == []
+    client.post(f"/api/vobiz/{SECRET}/gather/{PID}", data={"Digits": "9"})
+    assert state["transitions"] == []
+
+
+async def test_one_call_per_cooldown_window(monkeypatch):
+    placed = []
+
+    async def place_call(to, answer_url, hangup_url):
+        placed.append(answer_url)
+        return "call-1"
+
+    async def emit(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(calls.client, "configured", lambda: True)
+    monkeypatch.setattr(calls.client, "webhook_base", lambda: "https://t/api/vobiz/x")
+    monkeypatch.setattr(calls.client, "place_call", place_call)
+    monkeypatch.setattr(calls.events, "emit", emit)
+    monkeypatch.setattr(calls, "_last_call_at", None)
+    for n in range(5):  # a big outage proposes several fixes in quick succession
+        await calls.call_oncall({"incident_id": f"i{n}", "payload": {"proposal_id": str(n)}})
+    assert len(placed) == 1
