@@ -22,6 +22,7 @@ from app.features.remediation.router import router as remediation_router
 from app.features.simulator.router import router as simulator_router
 from app.features.topology.router import router as topology_router
 from app.integrations.freshservice import sync as freshservice_sync  # also registers subscribers
+from app.integrations.vobiz import calls as vobiz_calls  # also registers subscribers
 
 
 @asynccontextmanager
@@ -52,3 +53,4 @@ app.include_router(investigation_router)
 app.include_router(remediation_router)
 app.include_router(simulator_router)
 app.include_router(topology_router)
+app.include_router(vobiz_calls.router)

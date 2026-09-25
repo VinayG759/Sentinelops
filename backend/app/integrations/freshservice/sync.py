@@ -414,3 +414,20 @@ async def resolve_ticket(event: events.Event) -> None:
                       {"integration": "freshservice", "step": "resolve_ticket",
                        "ticket_id": ticket_id, "url": client.ticket_url(ticket_id)},
                       event["incident_id"])
+
+
+@events.on("incident.acknowledged")
+async def note_acknowledged(event: events.Event) -> None:
+    """Someone owns the outage now, e.g. the on-call engineer pressed 1 on the alert call."""
+    actor = event["actor"]
+    who = ("the on-call engineer, by phone (SentinelOps alert call)" if actor.startswith("phone:")
+           else "a responder in SentinelOps")
+    ticket_id, _ = await _records_for(event)
+    if not ticket_id or not client.configured():
+        return
+    try:
+        await client.add_note(ticket_id, f"<p><b>Acknowledged</b> by {who} at {_when(event)}.</p>")
+    except client.FreshserviceError as exc:
+        await events.emit("integration.failed", "system",
+                          {"integration": "freshservice", "step": "note_acknowledged",
+                           "error": str(exc)}, event["incident_id"])

@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     # (multi-team) account, records filed without it land in the default workspace, where
     # the key's agent may be unable to read or update them.
     freshservice_workspace_id: int | None = None
+    # Vobiz phone alerts: call the on-call engineer when a fix needs approval.
+    vobiz_auth_id: str = ""
+    vobiz_auth_token: str = ""
+    vobiz_from_number: str = ""
+    oncall_phone: str = ""
+    # Secret path segment on the Vobiz webhooks (Vobiz can't log in to our API).
+    vobiz_webhook_secret: str = ""
+    # Public https origin of THIS backend (e.g. a Cloudflare tunnel), for Vobiz callbacks.
+    public_api_url: str = ""
     # Where people open SentinelOps; used for links written into Freshservice records.
     app_url: str = "http://localhost:5173"
 
