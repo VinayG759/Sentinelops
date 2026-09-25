@@ -88,15 +88,26 @@ async def workspace_id() -> int | None:
     return _workspace_id
 
 
+SOURCE_ALERTS = 14  # Freshservice ticket source for monitoring-raised tickets
+
+
 async def create_ticket(subject: str, description_html: str, priority: int) -> int:
-    """Open a ticket (status Open). Returns its id."""
+    """Open a ticket (status Open, source Alerts). Returns its id.
+
+    Some workspaces run a rule on new tickets that resets priority (the w19 sandbox sets
+    every new ticket to Low), so if the stored priority differs, set it again.
+    """
     body = {
         "subject": subject,
         "description": description_html,
         "email": await requester_email(),
         "priority": priority,
         "status": 2,  # Open
+        "source": SOURCE_ALERTS,
     }
     if (ws := await workspace_id()) is not None:
         body["workspace_id"] = ws
-    return (await request("POST", "/tickets", body))["ticket"]["id"]
+    ticket = (await request("POST", "/tickets", body))["ticket"]
+    if ticket.get("priority") != priority:
+        await request("PUT", f"/tickets/{ticket['id']}", {"priority": priority})
+    return ticket["id"]

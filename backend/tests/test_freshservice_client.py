@@ -26,15 +26,25 @@ def settings(monkeypatch):
 @respx.mock
 async def test_create_ticket_sends_requester_priority_and_open_status():
     route = respx.post(f"{BASE}/tickets").mock(
-        return_value=httpx.Response(201, json={"ticket": {"id": 42}})
+        return_value=httpx.Response(201, json={"ticket": {"id": 42, "priority": 4}})
     )
     assert await client.create_ticket("s", "<p>d</p>", priority=4) == 42
     sent = route.calls.last.request
     body = httpx.Response(200, content=sent.content).json()
     assert body == {"subject": "s", "description": "<p>d</p>",
                     "email": "agent@example.com", "priority": 4, "status": 2,
-                    "workspace_id": 21}
+                    "source": 14, "workspace_id": 21}
     assert sent.headers["authorization"].startswith("Basic ")
+
+
+@respx.mock
+async def test_priority_reset_by_a_workspace_rule_is_set_again():
+    respx.post(f"{BASE}/tickets").mock(
+        return_value=httpx.Response(201, json={"ticket": {"id": 7, "priority": 1}})
+    )
+    fix = respx.put(f"{BASE}/tickets/7").mock(return_value=httpx.Response(200, json={}))
+    await client.create_ticket("s", "d", priority=3)
+    assert fix.called and b'"priority":3' in fix.calls.last.request.content.replace(b" ", b"")
 
 
 @respx.mock
