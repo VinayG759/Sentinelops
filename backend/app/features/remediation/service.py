@@ -147,13 +147,16 @@ async def pending_with_fs_change() -> list[dict]:
         ).fetchall()
 
 
-async def decide_proposal(proposal_id: UUID, decision: str, user_id: str, reason: str) -> dict:
+async def decide_proposal(
+    proposal_id: UUID, decision: str, user_id: str | None, reason: str,
+    *, source: str = "sentinelops", actor: str | None = None,
+) -> dict:
     """Approve or reject, atomically. Raises ValueError if it was already decided or expired.
 
     The UPDATE ... WHERE status='pending' is what makes a double-click safe: the second
     caller updates zero rows and gets an error instead of a second execution.
     """
-    actor = f"user:{user_id}"
+    actor = actor or f"user:{user_id}"
     new_status = "approved" if decision == "approved" else "rejected"
 
     async with get_pool().connection() as conn:
@@ -169,13 +172,14 @@ async def decide_proposal(proposal_id: UUID, decision: str, user_id: str, reason
             raise ValueError("Proposal is not pending (already decided, or expired)")
 
         await conn.execute(
-            "insert into public.approvals (proposal_id, user_id, decision, reason) "
-            "values (%s, %s, %s, %s)",
-            (proposal_id, user_id, new_status, reason),
+            "insert into public.approvals (proposal_id, user_id, source, decision, reason) "
+            "values (%s, %s, %s, %s, %s)",
+            (proposal_id, user_id, source, new_status, reason),
         )
         event = await events.insert(
             conn, f"remediation.{new_status}", actor,
-            {"proposal_id": str(proposal_id), "action": proposal["action"], "reason": reason},
+            {"proposal_id": str(proposal_id), "action": proposal["action"], "reason": reason,
+             "source": source},
             proposal["incident_id"],
         )
     events.dispatch(event)  # the executor listens for remediation.approved

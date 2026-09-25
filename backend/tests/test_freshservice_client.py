@@ -98,3 +98,15 @@ def test_change_description_shows_the_diff_risk_rollback_and_escapes():
     assert "port &lt;5433&gt; is wrong" in html, "AI text must be escaped"
     assert "ticket #89" in html and "Put the port back" in html and "/incidents/inc-1" in html
     assert sync.RISK == {"low": 1, "medium": 2, "high": 3}
+
+
+def _approval(name, who="Vinay G"):
+    return {"approval_status": {"id": 0, "name": name}, "approver_name": who}
+
+
+def test_freshservice_approval_decisions():
+    assert sync.decision_from([]) is None
+    assert sync.decision_from([_approval("requested")]) is None, "still waiting"
+    assert sync.decision_from([_approval("Approved")])[0] == "approved"
+    both = [_approval("approved", "A"), _approval("rejected", "B")]
+    assert sync.decision_from(both) == ("rejected", both[1]), "when in doubt, don't act"

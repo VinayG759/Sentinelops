@@ -21,9 +21,7 @@ from app.features.remediation import executor
 from app.features.remediation.router import router as remediation_router
 from app.features.simulator.router import router as simulator_router
 from app.features.topology.router import router as topology_router
-from app.integrations.freshservice import (
-    sync as freshservice_sync,  # noqa: F401  (registers subscribers)
-)
+from app.integrations.freshservice import sync as freshservice_sync  # also registers subscribers
 
 
 @asynccontextmanager
@@ -34,6 +32,7 @@ async def lifespan(_: FastAPI):
     if get_settings().supabase_db_url:
         background.append(asyncio.create_task(detector.run()))
         background.append(asyncio.create_task(executor.sweep()))
+        background.append(asyncio.create_task(freshservice_sync.watch_change_approvals()))
     yield
     for task in background:
         task.cancel()

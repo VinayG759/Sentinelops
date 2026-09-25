@@ -174,3 +174,45 @@ async def change_for_proposal(event: events.Event) -> None:
     await events.emit("integration.synced", "system",
                       {"integration": "freshservice", "step": "create_change",
                        "change_id": change_id, "url": client.change_url(change_id)}, incident_id)
+
+
+APPROVAL_POLL_SECONDS = 15
+
+
+def decision_from(approvals: list[dict]) -> tuple[str, dict] | None:
+    """('approved' | 'rejected', the approval) once any approver in Freshservice decided.
+    A rejection wins over an approval: when in doubt, don't act."""
+    by_status = {(a.get("approval_status") or {}).get("name", "").lower(): a for a in approvals}
+    for status in ("rejected", "approved"):
+        if status in by_status:
+            return status, by_status[status]
+    return None
+
+
+async def watch_change_approvals() -> None:
+    """Every 15s, read the Freshservice approvals of changes SentinelOps is waiting on, and
+    record a decision taken there. The decision goes through the same atomic transition as
+    one taken in SentinelOps, so approving in both places can never run the fix twice."""
+    while True:
+        await asyncio.sleep(APPROVAL_POLL_SECONDS)
+        if not client.configured():
+            continue
+        try:
+            for proposal in await remediation.pending_with_fs_change():
+                found = decision_from(await client.change_approvals(proposal["fs_change_id"]))
+                if not found:
+                    continue
+                decision, approval = found
+                who = approval.get("approver_name") or f"agent {approval.get('approver_id')}"
+                remark = approval.get("latest_remark") or ""
+                try:
+                    await remediation.decide_proposal(
+                        proposal["id"], decision, None,
+                        f"{decision} in Freshservice change #{proposal['fs_change_id']} by {who}"
+                        + (f": {remark}" if remark else ""),
+                        source="freshservice", actor=f"freshservice:{who}",
+                    )
+                except ValueError:
+                    pass  # decided in SentinelOps meanwhile, or expired
+        except Exception:
+            log.exception("freshservice approval watch failed")
