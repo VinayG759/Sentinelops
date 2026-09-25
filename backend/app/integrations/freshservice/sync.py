@@ -30,9 +30,18 @@ OUTAGE_WINDOW_SECONDS = 120
 _ticket_lock = asyncio.Lock()
 
 
-def _incident_link(incident_id) -> str:
-    url = f"{get_settings().app_url}/incidents/{incident_id}"
-    return f'<a href="{url}">{html.escape(url)}</a>'
+def _button(url: str, label: str, primary: bool = True) -> str:
+    """A link styled as a button (Freshservice keeps inline styles in descriptions/notes)."""
+    colours = ("background:#2563eb;color:#ffffff" if primary
+               else "background:#ffffff;color:#1f2937;border:1px solid #d1d5db")
+    return (f'<a href="{html.escape(url)}" style="display:inline-block;padding:8px 14px;'
+            f'{colours};border-radius:6px;text-decoration:none;font-weight:600;'
+            f'margin:4px 8px 4px 0">{html.escape(label)}</a>')
+
+
+def investigate_button(incident_id, primary: bool = False) -> str:
+    return _button(f"{get_settings().app_url}/incidents/{incident_id}",
+                   "Investigate in SentinelOps", primary)
 
 
 def ticket_description(payload: dict, incident_id) -> str:
@@ -49,8 +58,9 @@ def ticket_description(payload: dict, incident_id) -> str:
         "<p>Opened automatically by <b>SentinelOps AI</b> from live Prometheus metrics.</p>"
         f"<ul>{table}</ul>"
         f"<p>Query: <code>{esc(payload.get('promql', ''))}</code></p>"
-        "<p>The AI investigation, proposed fix and approvals follow in SentinelOps: "
-        f"{_incident_link(incident_id)}</p>"
+        "<p>SentinelOps is investigating now. When it proposes a fix, a note here will link "
+        "to the change to approve.</p>"
+        f"<p>{investigate_button(incident_id, primary=True)}</p>"
     )
 
 
@@ -93,7 +103,7 @@ async def _join_ticket(ticket_id: int, payload: dict, incident_id) -> None:
         + ". Grouped into this ticket because it opened within "
         f"{OUTAGE_WINDOW_SECONDS // 60} minutes of the first incident (correlated by time; "
         "the investigation confirms whether the cause is shared).</p>"
-        f"<p>{_incident_link(incident_id)}</p>"
+        f"<p>{investigate_button(incident_id)}</p>"
     ))
     on_ticket = await incidents.incidents_on_ticket(ticket_id)
     services = sorted({row["service"] for row in on_ticket})
@@ -149,8 +159,6 @@ def change_description(p: dict, incident_id, ticket_id: int | None) -> str:
     ])
     who = " and ".join(services) or "the affected services"
     reasons = "; ".join(p.get("policy_reasons") or []) or "-"
-    ticket_link = (f' &middot; <a href="{client.ticket_url(ticket_id)}">Outage ticket '
-                   f"#{ticket_id}</a>") if ticket_id else ""
     return (
         "<p><b>SentinelOps AI</b> proposes this fix for an ongoing outage. It could only "
         "choose from a fixed catalog of safe actions, and SentinelOps has checked it against "
@@ -162,9 +170,28 @@ def change_description(p: dict, incident_id, ticket_id: int | None) -> str:
         "<p><b>To approve</b><br>Use Approve / Reject on this change. SentinelOps applies it "
         "within about 15 seconds of approval, after re-checking its kill switch and "
         "allow-list, then verifies recovery.</p>"
-        f"<p>Investigate in SentinelOps: {_incident_link(incident_id)}{ticket_link}</p>"
+        f"<p>{investigate_button(incident_id)}"
+        + (_button(client.ticket_url(ticket_id), f"Outage ticket #{ticket_id}", primary=False)
+           if ticket_id else "")
+        + "</p>"
         '<p style="color:#6b7280;font-size:12px">Technical detail &mdash; verification query: '
         f"<code>{esc(p.get('verify_query', ''))}</code><br>Policy: {esc(reasons)}</p>"
+    )
+
+
+def action_needed_note(title, params: str, change_id: int, incident_id) -> str:
+    """The note that tells whoever reads the ticket what to do next: approvals live on the
+    change, not on this ticket."""
+    return (
+        '<div style="border-left:4px solid #f59e0b;padding:4px 12px">'
+        "<p><b>Action needed: approve the fix</b></p>"
+        f"<p>SentinelOps AI proposes: <b>{html.escape(str(title))}</b> "
+        f"({html.escape(params)}). Nothing changes until someone approves it.</p>"
+        f"<p>Approval happens on the <b>change</b> #CHN-{change_id}, not on this ticket: "
+        "open it and use Approve or Reject. SentinelOps applies an approved fix within "
+        "about 15 seconds and posts the result here.</p>"
+        f"<p>{_button(client.change_url(change_id), f'Review & approve change #CHN-{change_id}')}"
+        f"{investigate_button(incident_id)}</p></div>"
     )
 
 
@@ -188,12 +215,8 @@ async def change_for_proposal(event: events.Event) -> None:
         )
         await remediation.set_fs_change(p["proposal_id"], change_id)
         if ticket_id:
-            await client.add_note(ticket_id, (
-                f"<p><b>Fix proposed:</b> {html.escape(str(p.get('title')))} "
-                f"({html.escape(params)})"
-                f" &mdash; change <a href=\"{client.change_url(change_id)}\">#CHN-{change_id}</a>"
-                " is awaiting approval. Nothing runs until it is approved.</p>"
-            ))
+            await client.add_note(ticket_id, action_needed_note(
+                p.get("title"), params, change_id, incident_id))
     except client.FreshserviceError as exc:
         await events.emit("integration.failed", "system",
                           {"integration": "freshservice", "step": "create_change",
