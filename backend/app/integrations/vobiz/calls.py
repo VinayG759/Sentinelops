@@ -9,6 +9,7 @@ SentinelOps, where the approver is logged in: anyone can pick up a phone.
 Vobiz cannot authenticate to our API, so its webhooks sit under a secret path segment.
 """
 
+import asyncio
 import hmac
 import logging
 import time
@@ -22,6 +23,7 @@ from app.core import events
 from app.core.config import get_settings
 from app.features.incidents import service as incidents
 from app.features.remediation import service as remediation
+from app.integrations.elevenlabs import tts
 from app.integrations.vobiz import client
 
 log = logging.getLogger(__name__)
@@ -114,14 +116,30 @@ async def script(proposal_id: UUID) -> str:
 @router.post("/answer/{proposal_id}")
 async def answer(secret: str, proposal_id: UUID) -> Response:
     _check(secret)
-    text = escape(await script(proposal_id))
+    text = await script(proposal_id) + " Press 1 to acknowledge. Press 2 to hear this again."
+    prompt, bye = await asyncio.gather(_voice(text), _voice("No input received. Goodbye."))
     action = f"{client.webhook_base()}/gather/{proposal_id}"
     return _xml(
         f'<Gather numDigits="1" executionTimeout="10" action="{action}" method="POST" '
-        f'inputType="dtmf"><Speak {VOICE}>{text} '
-        "Press 1 to acknowledge. Press 2 to hear this again.</Speak></Gather>"
-        f"<Speak {VOICE}>No input received. Goodbye.</Speak>"
+        f'inputType="dtmf">{prompt}</Gather>{bye}'
     )
+
+
+async def _voice(text: str) -> str:
+    """<Play> an ElevenLabs recording of `text`, or <Speak> it if that is unavailable."""
+    key = await tts.synthesize(text)
+    if key:
+        return f"<Play>{client.webhook_base()}/audio/{key}.mp3</Play>"
+    return f"<Speak {VOICE}>{escape(text)}</Speak>"
+
+
+@router.get("/audio/{key}.mp3")
+async def audio(secret: str, key: str) -> Response:
+    _check(secret)
+    data = tts.cached(key)
+    if data is None:
+        raise HTTPException(404)
+    return Response(data, media_type="audio/mpeg")
 
 
 @router.post("/gather/{proposal_id}")
@@ -134,12 +152,12 @@ async def gather(secret: str, proposal_id: UUID, request: Request) -> Response:
         return _xml(f'<Redirect method="POST">{client.webhook_base()}/answer/{proposal_id}'
                     "</Redirect>")
     if digits != "1":
-        return _xml(f"<Speak {VOICE}>Goodbye.</Speak><Hangup/>")
+        return _xml(f"{await _voice('Goodbye.')}<Hangup/>")
     # Acknowledge exactly what the call announced: everything still untouched.
     for row in await incidents.list_incidents("triggered"):
         await incidents.transition(row["id"], "acknowledged", "phone:on-call")
-    return _xml(f"<Speak {VOICE}>Acknowledged. Please review the changes in Freshservice. "
-                "Goodbye.</Speak><Hangup/>")
+    ack = await _voice("Acknowledged. Please review the changes in Freshservice. Goodbye.")
+    return _xml(f"{ack}<Hangup/>")
 
 
 @router.post("/hangup/{proposal_id}")

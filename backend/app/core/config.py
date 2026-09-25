@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     vobiz_webhook_secret: str = ""
     # Public https origin of THIS backend (e.g. a Cloudflare tunnel), for Vobiz callbacks.
     public_api_url: str = ""
+    # ElevenLabs voice for the phone alert (empty key = the telephony provider's voice).
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # a standard ElevenLabs voice
+    elevenlabs_model: str = "eleven_flash_v2_5"  # low latency: generated while ringing
     # Where people open SentinelOps; used for links written into Freshservice records.
     app_url: str = "http://localhost:5173"
 
