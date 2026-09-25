@@ -10,7 +10,8 @@ and every step lands in a tamper-evident, hash-chained event log.
 > Built for The Great Agent Hackathon (Freshworks, Bengaluru, 25–26 Sep 2026),
 > Track 3 — AI-native Enterprise.
 > **[docs/how-it-runs.md](docs/how-it-runs.md)** explains the stack and what happens when each
-> part fails. [docs/implementation-plan.md](docs/implementation-plan.md) has the full plan.
+> part fails. **[docs/glossary.md](docs/glossary.md)** defines every term used here.
+> [docs/implementation-plan.md](docs/implementation-plan.md) has the full plan.
 
 ![Overview](docs/screenshots/overview.png)
 
