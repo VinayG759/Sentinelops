@@ -9,12 +9,21 @@ schema in TOOL_SCHEMAS describing it to the model.
 
 import asyncio
 import json
+import re
 
 from app.core import k8s, prometheus
 from app.core.db import get_pool
 
 ALLOWED_PROBE_PORTS = {5432, 5433, 4001, 4002, 9090}
 MAX_LOG_LINES = 50
+
+# Settings whose values the agent must never see. Their names stay visible, so it can still
+# tell a password is configured; the value would be sent to the model and kept on the timeline.
+_SENSITIVE_ENV = re.compile(r"PASSWORD|PASSWD|SECRET|TOKEN|KEY|CREDENTIAL", re.IGNORECASE)
+
+
+def redact_env(env: dict[str, str | None]) -> dict[str, str | None]:
+    return {k: "[hidden]" if v and _SENSITIVE_ENV.search(k) else v for k, v in env.items()}
 
 
 async def _service_row(name: str) -> dict:
@@ -110,7 +119,7 @@ async def get_deployment_config(service: str) -> dict:
         return {
             "deployment": dep.metadata.name,
             "image": container.image,
-            "env": {e.name: e.value for e in (container.env or [])},
+            "env": redact_env({e.name: e.value for e in (container.env or [])}),
             "ports": [p.container_port for p in (container.ports or [])],
             "replicas": {"desired": dep.spec.replicas, "ready": dep.status.ready_replicas},
         }
